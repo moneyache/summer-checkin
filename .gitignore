@@ -1,3 +1,5 @@
 .build/
 .workbuddy/
 .DS_Store
+# 含管理员口令等敏感信息，仅本地留存供 agent 参考，不入库
+README.md
