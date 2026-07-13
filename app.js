@@ -211,26 +211,92 @@ async function doCheckin(category, item, customText, points) {
   return data;
 }
 
-// ---------- 视图：我的记录 ----------
+// ---------- 视图：我的记录（支持按时间/大类/细项筛选） ----------
+let MY_CHECKINS = null;                 // 最近一次拉取的全部打卡记录（用于本地筛选）
+let RECFILTER = { time: 'all', date: '', cat: 'all', item: 'all' };
+
 function balanceCard() {
   return '<div class="card" style="text-align:center"><div class="muted">我的总积分</div><div style="font-size:32px;font-weight:800;color:var(--orange-deep)">' + USER.balance + ' 分</div></div>';
 }
+// 解析一条记录的展示字段
+function recInfo(r) {
+  const cat = CFG.categories.find(c => c.id === r.category_id);
+  const it = r.item_id ? (CFG.itemsByCat[r.category_id] || []).find(i => i.id === r.item_id) : null;
+  const title = it ? it.name : (r.custom_text || '自定义');
+  return { catId: r.category_id, catName: cat ? cat.name : '', title: title, date: r.checkin_date, hasItem: !!it };
+}
+function optionsHtml(pairs, cur) {
+  return pairs.map(p => '<option value="' + esc(p[0]) + '"' + (String(p[0]) === String(cur) ? ' selected' : '') + '>' + esc(p[1]) + '</option>').join('');
+}
+// 上海时区“今天往前 n 天”的日期字符串
+function dateDaysAgoSH(n) {
+  const [y, m, d] = TODAY.split('-').map(Number);
+  const base = new Date(Date.UTC(y, m - 1, d));
+  base.setUTCDate(base.getUTCDate() - n);
+  return base.toISOString().slice(0, 10);
+}
+// 当前所选大类下，记录中出现过的细项（名称去重，含自填内容）
+function recDistinctItems(list, catId) {
+  const set = new Set();
+  list.forEach(r => { const i = recInfo(r); if (catId === 'all' || i.catId === catId) set.add(i.title); });
+  return Array.from(set);
+}
+function recPassFilter(r) {
+  const f = RECFILTER, i = recInfo(r);
+  if (f.time === 'today' && i.date !== TODAY) return false;
+  if (f.time === '7d' && i.date < dateDaysAgoSH(6)) return false;
+  if (f.time === 'month' && i.date.slice(0, 7) !== TODAY.slice(0, 7)) return false;
+  if (f.time === 'pick' && f.date && i.date !== f.date) return false;
+  if (f.cat !== 'all' && i.catId !== f.cat) return false;
+  if (f.item !== 'all' && i.title !== f.item) return false;
+  return true;
+}
 async function renderRecords() {
   const { data, error } = await getSupabase().rpc('sc_my_checkins', { p_username: USER.username });
+  MY_CHECKINS = error ? [] : (data || []);
+  drawRecords();
+}
+function drawRecords() {
+  const all = MY_CHECKINS || [];
+  const f = RECFILTER;
   let html = '<div class="section-title">📒 我的打卡记录</div>' + balanceCard();
-  if (error || !data || !data.length) { html += '<div class="empty">还没有打卡记录哦，去打卡赚积分吧！</div>'; }
-  else {
+  // 筛选栏：时间 / 大类 / 细项
+  const timeOpts = [['all', '全部时间'], ['today', '今天'], ['7d', '近7天'], ['month', '本月'], ['pick', '指定日期']];
+  const catOpts = [['all', '全部大类']].concat(CFG.categories.map(c => [c.id, c.name]));
+  const itemOpts = [['all', '全部细项']].concat(recDistinctItems(all, f.cat).map(t => [t, t]));
+  html += '<div class="rec-filter">' +
+    '<select id="fTime" onchange="onRecFilter()">' + optionsHtml(timeOpts, f.time) + '</select>' +
+    '<input type="date" id="fDate" onchange="onRecFilter()" value="' + esc(f.date) + '" style="' + (f.time === 'pick' ? '' : 'display:none') + '">' +
+    '<select id="fCat" onchange="onRecCatChange()">' + optionsHtml(catOpts, f.cat) + '</select>' +
+    '<select id="fItem" onchange="onRecFilter()">' + optionsHtml(itemOpts, f.item) + '</select>' +
+    '</div>';
+  const list = all.filter(recPassFilter);
+  const gain = list.reduce((a, r) => a + (r.points || 0), 0);
+  html += '<div class="rec-summary">共 <b>' + list.length + '</b> 条 · 累计 <b>+' + gain + '</b> 分</div>';
+  if (!list.length) {
+    html += '<div class="empty">' + (all.length ? '没有符合筛选条件的记录～换个条件试试' : '还没有打卡记录哦，去打卡赚积分吧！') + '</div>';
+  } else {
     html += '<div class="card">';
-    data.forEach(r => {
-      const cat = CFG.categories.find(c => c.id === r.category_id);
-      const it = r.item_id ? (CFG.itemsByCat[r.category_id] || []).find(i => i.id === r.item_id) : null;
-      const title = it ? it.name : (r.custom_text || '自定义');
-      const sub = (cat ? cat.name : '') + (r.custom_text ? (' · ' + r.custom_text) : '');
-      html += '<div class="rec"><div class="left"><div class="title">' + esc(title) + '</div><div class="sub">' + esc(sub) + ' · ' + r.checkin_date + '</div></div><div class="pts">+' + r.points + '</div></div>';
+    list.forEach(r => {
+      const i = recInfo(r);
+      const sub = i.catName + ' · ' + i.date;
+      html += '<div class="rec"><div class="left"><div class="title">' + esc(i.title) + '</div><div class="sub">' + esc(sub) + '</div></div><div class="pts">+' + r.points + '</div></div>';
     });
     html += '</div>';
   }
   $('#view').innerHTML = html;
+}
+function onRecFilter() {
+  RECFILTER.time = $('#fTime').value;
+  const fd = $('#fDate'); if (fd) RECFILTER.date = fd.value;
+  RECFILTER.cat = $('#fCat').value;
+  const fi = $('#fItem'); RECFILTER.item = fi ? fi.value : 'all';
+  drawRecords();
+}
+function onRecCatChange() {                 // 切换大类时重置细项选择
+  RECFILTER.cat = $('#fCat').value;
+  RECFILTER.item = 'all';
+  drawRecords();
 }
 
 // ---------- 视图：积分商城 ----------
