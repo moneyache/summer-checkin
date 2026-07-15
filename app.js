@@ -506,12 +506,12 @@ function drawOverview() {
   const pageRows = list.slice(start, start + OV_PAGE_SIZE);
   html += '<div class="card"><div style="display:flex;align-items:center;gap:6px"><b>✅ 全部打卡记录</b>' +
     '<span class="muted" style="font-weight:400">（共 ' + list.length + ' 条 · 按打卡时间倒序）</span></div>' +
-    '<div class="table-wrap" style="margin-top:8px"><table class="tbl"><thead><tr><th>账号</th><th>大类</th><th>细项</th><th>分</th><th class="cell-time">时间</th></tr></thead><tbody>';
+    '<div class="table-wrap" style="margin-top:8px"><table class="tbl"><thead><tr><th class="cell-user">账号</th><th class="cell-cat">大类</th><th class="cell-item">细项</th><th class="cell-pts">分</th><th class="cell-time">时间</th></tr></thead><tbody>';
   pageRows.forEach(r => {
     const cat = CFG.categories.find(c => c.id === r.category_id);
     const it = r.item_id ? (CFG.itemsByCat[r.category_id] || []).find(i => i.id === r.item_id) : null;
     const title = it ? it.name : (r.custom_text || '自定义');
-    html += '<tr><td>' + esc(r.username) + '</td><td>' + esc(cat ? cat.name : '') + '</td><td>' + esc(title) + (r.custom_text && it ? ' (' + esc(r.custom_text) + ')' : '') + '</td><td>+' + r.points + '</td><td class="cell-time">' + esc(fmtTime(r.checkin_at_sh || r.checkin_date)) + '</td></tr>';
+    html += '<tr><td class="cell-user">' + esc(r.username) + '</td><td class="cell-cat">' + esc(cat ? cat.name : '') + '</td><td class="cell-item">' + esc(title) + (r.custom_text && it ? ' (' + esc(r.custom_text) + ')' : '') + '</td><td class="cell-pts">+' + r.points + '</td><td class="cell-time">' + esc(fmtTime(r.checkin_at_sh || r.checkin_date)) + '</td></tr>';
   });
   html += '</tbody></table></div>' + pagerHtml(OV_PAGE, totalPages, 'ovGoPage') + '</div>';
 
@@ -519,7 +519,7 @@ function drawOverview() {
   html += '<div class="card"><b>🛒 全部兑换消耗</b><div class="table-wrap" style="margin-top:8px"><table class="tbl"><thead><tr><th>账号</th><th>奖品</th><th>消耗</th><th class="cell-time">时间</th></tr></thead><tbody>';
   (d.redemptions || []).forEach(r => {
     const dt = fmtTime(r.redeemed_at_sh || '');
-    html += '<tr><td>' + esc(r.username) + '</td><td>' + esc(r.prize_name || '') + '</td><td>-' + r.cost + '</td><td class="cell-time">' + esc(dt) + '</td></tr>';
+    html += '<tr><td class="cell-user">' + esc(r.username) + '</td><td class="cell-item">' + esc(r.prize_name || '') + '</td><td class="cell-pts">-' + r.cost + '</td><td class="cell-time">' + esc(dt) + '</td></tr>';
   });
   html += '</tbody></table></div></div>';
 
