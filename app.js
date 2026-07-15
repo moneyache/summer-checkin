@@ -20,6 +20,12 @@ function shanghaiDate() { return new Date().toLocaleDateString('en-CA', { timeZo
 function esc(s) {
   return String(s == null ? '' : s).replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
 }
+// 时间格式化为「日期 时分」（去掉秒，压缩宽度）；纯日期或空值原样返回
+function fmtTime(s) {
+  s = String(s == null ? '' : s).trim();
+  if (!s) return '';
+  return s.length >= 16 ? s.substring(0, 16) : s;
+}
 function catEmoji(name) {
   if (/语文/.test(name)) return '📖';
   if (/数学/.test(name)) return '🔢';
@@ -279,7 +285,7 @@ function drawRecords() {
     html += '<div class="card">';
     list.forEach(r => {
       const i = recInfo(r);
-      const sub = i.catName + ' · ' + i.date + (r.checkin_at_sh ? ' ' + r.checkin_at_sh : '');
+      const sub = i.catName + ' · ' + fmtTime(r.checkin_at_sh || i.date);
       html += '<div class="rec"><div class="left"><div class="title">' + esc(i.title) + '</div><div class="sub">' + esc(sub) + '</div></div><div class="pts">+' + r.points + '</div></div>';
     });
     html += '</div>';
@@ -349,10 +355,8 @@ async function renderRedeem() {
   else {
     html += '<div class="card">';
     data.forEach(r => {
-      const dt = r.redeemed_at_sh || '';
-      const day = dt ? dt.substring(0, 10) : '';
-      const time = dt ? dt.substring(11) : '';
-      html += '<div class="rec"><div class="left"><div class="title">' + esc(r.prize_name || '奖品') + '</div><div class="sub">' + day + (time ? ' ' + time : '') + '</div></div><div class="pts minus">-' + r.cost + '</div></div>';
+      const dt = fmtTime(r.redeemed_at_sh || '');
+      html += '<div class="rec"><div class="left"><div class="title">' + esc(r.prize_name || '奖品') + '</div><div class="sub">' + esc(dt) + '</div></div><div class="pts minus">-' + r.cost + '</div></div>';
     });
     html += '</div>';
   }
@@ -503,14 +507,14 @@ function drawOverview() {
     const cat = CFG.categories.find(c => c.id === r.category_id);
     const it = r.item_id ? (CFG.itemsByCat[r.category_id] || []).find(i => i.id === r.item_id) : null;
     const title = it ? it.name : (r.custom_text || '自定义');
-    html += '<tr><td>' + esc(r.username) + '</td><td>' + esc(cat ? cat.name : '') + '</td><td>' + esc(title) + (r.custom_text && it ? ' (' + esc(r.custom_text) + ')' : '') + '</td><td>+' + r.points + '</td><td class="cell-time">' + esc(r.checkin_at_sh || r.checkin_date) + '</td></tr>';
+    html += '<tr><td>' + esc(r.username) + '</td><td>' + esc(cat ? cat.name : '') + '</td><td>' + esc(title) + (r.custom_text && it ? ' (' + esc(r.custom_text) + ')' : '') + '</td><td>+' + r.points + '</td><td class="cell-time">' + esc(fmtTime(r.checkin_at_sh || r.checkin_date)) + '</td></tr>';
   });
   html += '</tbody></table></div>' + pagerHtml(OV_PAGE, totalPages, 'ovGoPage') + '</div>';
 
   // 全部兑换消耗：展示时间
   html += '<div class="card"><b>🛒 全部兑换消耗</b><div class="table-wrap" style="margin-top:8px"><table class="tbl"><thead><tr><th>账号</th><th>奖品</th><th>消耗</th><th class="cell-time">时间</th></tr></thead><tbody>';
   (d.redemptions || []).forEach(r => {
-    const dt = r.redeemed_at_sh || '';
+    const dt = fmtTime(r.redeemed_at_sh || '');
     html += '<tr><td>' + esc(r.username) + '</td><td>' + esc(r.prize_name || '') + '</td><td>-' + r.cost + '</td><td class="cell-time">' + esc(dt) + '</td></tr>';
   });
   html += '</tbody></table></div></div>';
