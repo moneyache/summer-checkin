@@ -213,3 +213,22 @@ table.tbl th { color: var(--muted); font-weight: 700; font-size: 12px; }
 .tag { display: inline-block; background: #E3F2FD; color: var(--sky-deep); font-size: 11px; padding: 2px 8px; border-radius: 8px; }
 .tag.custom { background: #F3E5F5; color: #8E24AA; }
 .tag.admin { background: #FFF3E0; color: #E65100; }
+
+/* ---------- 总览：可点击用户名 / 趋势图 / 分页 ---------- */
+.lk { color: var(--sky-deep); font-weight: 700; cursor: pointer; border-bottom: 1px dashed var(--sky-deep); }
+.lk:active { opacity: 0.6; }
+.trend-row td { background: #FBFDFF; padding: 8px 6px; }
+.trend { padding: 8px 4px 4px; }
+.trend-sum { font-size: 13px; color: var(--ink); margin-bottom: 10px; }
+.trend-sum b { color: var(--orange-deep); }
+.bars { display: flex; align-items: flex-end; gap: 6px; height: 130px; overflow-x: auto; padding-bottom: 4px; }
+.bar-col { flex: 0 0 auto; width: 38px; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; }
+.bar-val { font-size: 11px; color: var(--orange-deep); font-weight: 700; margin-bottom: 2px; }
+.bar-fill { width: 22px; border-radius: 6px 6px 2px 2px; background: linear-gradient(180deg, var(--orange), var(--orange-deep)); min-height: 6px; transition: height .2s; }
+.bar-date { font-size: 10px; color: var(--muted); margin-top: 4px; white-space: nowrap; }
+.cell-time { font-variant-numeric: tabular-nums; color: var(--ink); font-size: 12px; white-space: nowrap; }
+.pager { display: flex; align-items: center; justify-content: center; gap: 14px; margin-top: 12px; }
+.pager-info { font-size: 13px; color: var(--muted); font-weight: 600; }
+.pg-btn { border: none; background: var(--sky); color: #fff; font-weight: 700; font-size: 14px; padding: 8px 18px; border-radius: 14px; cursor: pointer; box-shadow: 0 4px 12px rgba(41,182,246,0.35); }
+.pg-btn:disabled { background: #CFD8DC; box-shadow: none; cursor: not-allowed; }
+.pg-btn:active:not(:disabled) { transform: scale(0.97); }

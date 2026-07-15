@@ -279,7 +279,7 @@ function drawRecords() {
     html += '<div class="card">';
     list.forEach(r => {
       const i = recInfo(r);
-      const sub = i.catName + ' · ' + i.date;
+      const sub = i.catName + ' · ' + i.date + (r.checkin_at_sh ? ' ' + r.checkin_at_sh : '');
       html += '<div class="rec"><div class="left"><div class="title">' + esc(i.title) + '</div><div class="sub">' + esc(sub) + '</div></div><div class="pts">+' + r.points + '</div></div>';
     });
     html += '</div>';
@@ -349,8 +349,10 @@ async function renderRedeem() {
   else {
     html += '<div class="card">';
     data.forEach(r => {
-      const day = r.created_at ? r.created_at.substring(0, 10) : '';
-      html += '<div class="rec"><div class="left"><div class="title">' + esc(r.prize_name || '奖品') + '</div><div class="sub">' + day + '</div></div><div class="pts minus">-' + r.cost + '</div></div>';
+      const dt = r.redeemed_at_sh || '';
+      const day = dt ? dt.substring(0, 10) : '';
+      const time = dt ? dt.substring(11) : '';
+      html += '<div class="rec"><div class="left"><div class="title">' + esc(r.prize_name || '奖品') + '</div><div class="sub">' + day + (time ? ' ' + time : '') + '</div></div><div class="pts minus">-' + r.cost + '</div></div>';
     });
     html += '</div>';
   }
@@ -463,27 +465,97 @@ function adminDelPrize(id) {
 }
 
 // ---------- 视图：管理员总览 ----------
+let OV = null;                  // 总览数据缓存
+let OV_PAGE = 1;                // 打卡记录当前页
+const OV_PAGE_SIZE = 30;        // 每页条数
+
 async function renderOverview() {
   const { data, error } = await getSupabase().rpc('sc_admin_overview', { p_username: USER.username });
   if (error) { $('#view').innerHTML = '<div class="empty">加载失败</div>'; return; }
   if (!data || !data.ok) { $('#view').innerHTML = '<div class="empty">' + (data ? data.error : '无权限') + '</div>'; return; }
-  const d = data.data;
+  OV = data.data;
+  OV_PAGE = 1;
+  drawOverview();
+}
+function drawOverview() {
+  const d = OV;
   let html = '<div class="section-title">📊 总览（管理员）</div>';
-  html += '<div class="card"><b>👧 所有账号积分</b><div class="table-wrap" style="margin-top:8px"><table class="tbl"><thead><tr><th>账号</th><th>已赚</th><th>已花</th><th>余额</th><th>打卡</th></tr></thead><tbody>';
-  (d.users || []).forEach(u => { html += '<tr><td>' + esc(u.username) + '</td><td>+' + u.earned + '</td><td>-' + u.spent + '</td><td><b>' + u.balance + '</b></td><td>' + u.checkins + '</td></tr>'; });
+
+  // 账号表：用户名可点击，展开该用户打卡统计趋势
+  html += '<div class="card"><div style="display:flex;align-items:center;gap:6px"><b>👧 所有账号积分</b><span class="muted" style="font-weight:400">（点用户名看打卡趋势）</span></div>' +
+    '<div class="table-wrap" style="margin-top:8px"><table class="tbl"><thead><tr><th>账号</th><th>已赚</th><th>已花</th><th>余额</th><th>打卡</th></tr></thead><tbody>';
+  (d.users || []).forEach(u => {
+    html += '<tr><td><span class="lk">' + esc(u.username) + '</span></td><td>+' + u.earned + '</td><td>-' + u.spent + '</td><td><b>' + u.balance + '</b></td><td>' + u.checkins + '</td></tr>';
+    html += '<tr class="trend-row" style="display:none"><td colspan="5">' + userTrendHtml(u.username) + '</td></tr>';
+  });
   html += '</tbody></table></div></div>';
-  html += '<div class="card"><b>✅ 全部打卡记录</b><div class="table-wrap" style="margin-top:8px"><table class="tbl"><thead><tr><th>账号</th><th>大类</th><th>细项</th><th>分</th><th>日期</th></tr></thead><tbody>';
-  (d.checkins || []).forEach(r => {
+
+  // 全部打卡记录：30 条/页，按打卡时间倒序（最新在前）
+  const list = (d.checkins || []).slice().sort((a, b) => (b.checkin_at_sh || '').localeCompare(a.checkin_at_sh || ''));
+  const totalPages = Math.max(1, Math.ceil(list.length / OV_PAGE_SIZE));
+  if (OV_PAGE > totalPages) OV_PAGE = totalPages;
+  const start = (OV_PAGE - 1) * OV_PAGE_SIZE;
+  const pageRows = list.slice(start, start + OV_PAGE_SIZE);
+  html += '<div class="card"><div style="display:flex;align-items:center;gap:6px"><b>✅ 全部打卡记录</b>' +
+    '<span class="muted" style="font-weight:400">（共 ' + list.length + ' 条 · 按打卡时间倒序）</span></div>' +
+    '<div class="table-wrap" style="margin-top:8px"><table class="tbl"><thead><tr><th>账号</th><th>大类</th><th>细项</th><th>分</th><th>日期</th><th>时间</th></tr></thead><tbody>';
+  pageRows.forEach(r => {
     const cat = CFG.categories.find(c => c.id === r.category_id);
     const it = r.item_id ? (CFG.itemsByCat[r.category_id] || []).find(i => i.id === r.item_id) : null;
     const title = it ? it.name : (r.custom_text || '自定义');
-    html += '<tr><td>' + esc(r.username) + '</td><td>' + esc(cat ? cat.name : '') + '</td><td>' + esc(title) + (r.custom_text && it ? ' (' + esc(r.custom_text) + ')' : '') + '</td><td>+' + r.points + '</td><td>' + r.checkin_date + '</td></tr>';
+    html += '<tr><td>' + esc(r.username) + '</td><td>' + esc(cat ? cat.name : '') + '</td><td>' + esc(title) + (r.custom_text && it ? ' (' + esc(r.custom_text) + ')' : '') + '</td><td>+' + r.points + '</td><td>' + r.checkin_date + '</td><td class="cell-time">' + esc(r.checkin_at_sh || '') + '</td></tr>';
+  });
+  html += '</tbody></table></div>' + pagerHtml(OV_PAGE, totalPages, 'ovGoPage') + '</div>';
+
+  // 全部兑换消耗：展示时间
+  html += '<div class="card"><b>🛒 全部兑换消耗</b><div class="table-wrap" style="margin-top:8px"><table class="tbl"><thead><tr><th>账号</th><th>奖品</th><th>消耗</th><th>日期</th><th>时间</th></tr></thead><tbody>';
+  (d.redemptions || []).forEach(r => {
+    const dt = r.redeemed_at_sh || '';
+    html += '<tr><td>' + esc(r.username) + '</td><td>' + esc(r.prize_name || '') + '</td><td>-' + r.cost + '</td><td>' + (dt ? dt.substring(0, 10) : '') + '</td><td class="cell-time">' + esc(dt) + '</td></tr>';
   });
   html += '</tbody></table></div></div>';
-  html += '<div class="card"><b>🛒 全部兑换消耗</b><div class="table-wrap" style="margin-top:8px"><table class="tbl"><thead><tr><th>账号</th><th>奖品</th><th>消耗</th><th>日期</th></tr></thead><tbody>';
-  (d.redemptions || []).forEach(r => { html += '<tr><td>' + esc(r.username) + '</td><td>' + esc(r.prize_name || '') + '</td><td>-' + r.cost + '</td><td>' + (r.created_at ? r.created_at.substring(0, 10) : '') + '</td></tr>'; });
-  html += '</tbody></table></div></div>';
+
   $('#view').innerHTML = html;
+  // 绑定用户名点击：展开/收起趋势
+  $('#view').querySelectorAll('.lk').forEach(el => {
+    el.addEventListener('click', () => {
+      const row = el.closest('tr').nextElementSibling;
+      if (row && row.classList.contains('trend-row')) row.style.display = (row.style.display === 'none') ? 'table-row' : 'none';
+    });
+  });
+}
+function ovGoPage(p) { OV_PAGE = p; drawOverview(); }
+function pagerHtml(page, total, fn) {
+  if (total <= 1) return '';
+  let s = '<div class="pager">';
+  s += '<button class="pg-btn" ' + (page <= 1 ? 'disabled' : '') + ' onclick="' + fn + '(' + (page - 1) + ')">‹ 上一页</button>';
+  s += '<span class="pager-info">第 ' + page + ' / ' + total + ' 页</span>';
+  s += '<button class="pg-btn" ' + (page >= total ? 'disabled' : '') + ' onclick="' + fn + '(' + (page + 1) + ')">下一页 ›</button>';
+  s += '</div>';
+  return s;
+}
+// 某用户的打卡统计趋势：按天聚合，柱状图展示每日得分
+function userTrendHtml(username) {
+  const rows = (OV.checkins || []).filter(r => r.username === username);
+  if (!rows.length) return '<div class="muted">暂无打卡记录</div>';
+  const byDay = {};
+  rows.forEach(r => {
+    const day = r.checkin_date;
+    if (!byDay[day]) byDay[day] = { pts: 0, cnt: 0 };
+    byDay[day].pts += (r.points || 0);
+    byDay[day].cnt += 1;
+  });
+  const days = Object.keys(byDay).sort();
+  const totalPts = rows.reduce((a, r) => a + (r.points || 0), 0);
+  const maxPts = Math.max(1, ...days.map(d => byDay[d].pts));
+  const bars = days.map(d => {
+    const h = Math.max(8, Math.round(byDay[d].pts / maxPts * 100));
+    return '<div class="bar-col" title="' + d + '：' + byDay[d].cnt + ' 次 · +' + byDay[d].pts + ' 分">' +
+      '<div class="bar-val">' + byDay[d].cnt + '</div>' +
+      '<div class="bar-fill" style="height:' + h + '%"></div>' +
+      '<div class="bar-date">' + d.slice(5) + '</div></div>';
+  }).join('');
+  return '<div class="trend"><div class="trend-sum">📈 ' + esc(username) + ' 的打卡趋势：共 <b>' + rows.length + '</b> 次 · 累计 <b>+' + totalPts + '</b> 分 · 活跃 <b>' + days.length + '</b> 天</div><div class="bars">' + bars + '</div></div>';
 }
 
 // ---------- Modal ----------

@@ -1,5 +1,5 @@
 /* 暑假打卡小能手 · Service Worker（PWA 离线缓存） */
-const CACHE = 'summer-checkin-v3';
+const CACHE = 'summer-checkin-v4';
 const SHELL = [
   './', './index.html', './styles.css', './app.js', './auth.js',
   './login.html', './register.html', './manifest.json',
