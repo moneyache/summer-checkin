@@ -226,7 +226,7 @@ table.tbl th { color: var(--muted); font-weight: 700; font-size: 12px; }
 .bar-val { font-size: 11px; color: var(--orange-deep); font-weight: 700; margin-bottom: 2px; }
 .bar-fill { width: 22px; border-radius: 6px 6px 2px 2px; background: linear-gradient(180deg, var(--orange), var(--orange-deep)); min-height: 6px; transition: height .2s; }
 .bar-date { font-size: 10px; color: var(--muted); margin-top: 4px; white-space: nowrap; }
-.cell-time { font-variant-numeric: tabular-nums; color: var(--ink); font-size: 12px; white-space: nowrap; }
+.cell-time { font-variant-numeric: tabular-nums; color: var(--muted); font-size: 11px; white-space: nowrap; width: 1%; }
 .pager { display: flex; align-items: center; justify-content: center; gap: 14px; margin-top: 12px; }
 .pager-info { font-size: 13px; color: var(--muted); font-weight: 600; }
 .pg-btn { border: none; background: var(--sky); color: #fff; font-weight: 700; font-size: 14px; padding: 8px 18px; border-radius: 14px; cursor: pointer; box-shadow: 0 4px 12px rgba(41,182,246,0.35); }

@@ -498,20 +498,20 @@ function drawOverview() {
   const pageRows = list.slice(start, start + OV_PAGE_SIZE);
   html += '<div class="card"><div style="display:flex;align-items:center;gap:6px"><b>✅ 全部打卡记录</b>' +
     '<span class="muted" style="font-weight:400">（共 ' + list.length + ' 条 · 按打卡时间倒序）</span></div>' +
-    '<div class="table-wrap" style="margin-top:8px"><table class="tbl"><thead><tr><th>账号</th><th>大类</th><th>细项</th><th>分</th><th>日期</th><th>时间</th></tr></thead><tbody>';
+    '<div class="table-wrap" style="margin-top:8px"><table class="tbl"><thead><tr><th>账号</th><th>大类</th><th>细项</th><th>分</th><th class="cell-time">时间</th></tr></thead><tbody>';
   pageRows.forEach(r => {
     const cat = CFG.categories.find(c => c.id === r.category_id);
     const it = r.item_id ? (CFG.itemsByCat[r.category_id] || []).find(i => i.id === r.item_id) : null;
     const title = it ? it.name : (r.custom_text || '自定义');
-    html += '<tr><td>' + esc(r.username) + '</td><td>' + esc(cat ? cat.name : '') + '</td><td>' + esc(title) + (r.custom_text && it ? ' (' + esc(r.custom_text) + ')' : '') + '</td><td>+' + r.points + '</td><td>' + r.checkin_date + '</td><td class="cell-time">' + esc(r.checkin_at_sh || '') + '</td></tr>';
+    html += '<tr><td>' + esc(r.username) + '</td><td>' + esc(cat ? cat.name : '') + '</td><td>' + esc(title) + (r.custom_text && it ? ' (' + esc(r.custom_text) + ')' : '') + '</td><td>+' + r.points + '</td><td class="cell-time">' + esc(r.checkin_at_sh || r.checkin_date) + '</td></tr>';
   });
   html += '</tbody></table></div>' + pagerHtml(OV_PAGE, totalPages, 'ovGoPage') + '</div>';
 
   // 全部兑换消耗：展示时间
-  html += '<div class="card"><b>🛒 全部兑换消耗</b><div class="table-wrap" style="margin-top:8px"><table class="tbl"><thead><tr><th>账号</th><th>奖品</th><th>消耗</th><th>日期</th><th>时间</th></tr></thead><tbody>';
+  html += '<div class="card"><b>🛒 全部兑换消耗</b><div class="table-wrap" style="margin-top:8px"><table class="tbl"><thead><tr><th>账号</th><th>奖品</th><th>消耗</th><th class="cell-time">时间</th></tr></thead><tbody>';
   (d.redemptions || []).forEach(r => {
     const dt = r.redeemed_at_sh || '';
-    html += '<tr><td>' + esc(r.username) + '</td><td>' + esc(r.prize_name || '') + '</td><td>-' + r.cost + '</td><td>' + (dt ? dt.substring(0, 10) : '') + '</td><td class="cell-time">' + esc(dt) + '</td></tr>';
+    html += '<tr><td>' + esc(r.username) + '</td><td>' + esc(r.prize_name || '') + '</td><td>-' + r.cost + '</td><td class="cell-time">' + esc(dt) + '</td></tr>';
   });
   html += '</tbody></table></div></div>';
 
