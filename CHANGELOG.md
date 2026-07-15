@@ -4,6 +4,15 @@
 > 项目上下文见 `agent.md`，完整系统架构见 `README.md`。
 > 遵循「较新的在上」的倒序排列。
 
+## 2026-07-15 · 工程化：pre-push 防漏 hook
+
+### 新增
+- **`pre-push` 防漏 hook**（`.githooks/pre-push`，经 `git config core.hooksPath .githooks` 启用）：每次 `git push` 到 main 前，若本轮含功能/代码改动但未更新 `CHANGELOG.md`，则**拦截 push**并提示先补；commit message 含 `[skip-changelog]` 可跳过检查。
+- **`scripts/changelog-draft.sh`**：被拦截时一键生成 CHANGELOG 草稿（含待 push 的 commit 列表与涉及文件），插入文件顶部当日区块，润色后提交即可。
+- 注：克隆到新机器后需先运行 `git config core.hooksPath .githooks` 才会启用该 hook。
+
+---
+
 ## 2026-07-15 · 总览优化 + 打卡/兑换时间
 
 ### 新增

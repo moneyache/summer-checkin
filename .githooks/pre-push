@@ -1,0 +1,66 @@
+#!/bin/bash
+# pre-push hook: 防止功能/代码改动漏记 CHANGELOG
+# 启用：git config core.hooksPath .githooks （本仓库已配置）
+#
+# 行为：
+#   1. 仅对推送到 main 的改动做检查
+#   2. commit message 含 [skip-changelog] → 跳过检查
+#   3. 本轮改动已包含 CHANGELOG.md → 放行
+#   4. 有代码/功能改动但没动 CHANGELOG.md → 拦截 push 并提示
+#
+# 注：纯脚本无法生成高质量中文 changelog，故只做"防漏"，
+#     被拦截时可运行 ./scripts/changelog-draft.sh 生成草稿插入顶部。
+
+zero=$(git rev-parse --show-toplevel)
+
+while read local_ref local_sha remote_ref remote_sha; do
+  # 只对推到 main 的分支检查
+  [ "$remote_ref" != "refs/heads/main" ] && continue
+
+  # 计算本轮 push 的 commit 范围
+  if [ "$remote_sha" = "0000000000000000000000000000000000000000" ]; then
+    range="$local_sha"
+  else
+    range="$remote_sha..$local_sha"
+  fi
+
+  commits=$(git rev-list "$range" 2>/dev/null)
+  [ -z "$commits" ] && exit 0
+
+  # 检查是否带 [skip-changelog]
+  skip=0
+  while read c; do
+    msg=$(git log -1 --format=%B "$c")
+    echo "$msg" | grep -qi "\[skip-changelog\]" && { skip=1; break; }
+  done <<< "$commits"
+  if [ "$skip" = "1" ]; then
+    echo "⏭️  检测到 [skip-changelog]，跳过 CHANGELOG 检查"
+    exit 0
+  fi
+
+  # 本轮是否已更新 CHANGELOG
+  if git diff --name-only "$range" | grep -qx "CHANGELOG.md"; then
+    echo "✅ CHANGELOG.md 已在本轮改动中更新"
+    exit 0
+  fi
+
+  # 是否含代码/功能改动（非纯文档）
+  code_files=$(git diff --name-only "$range" | grep -vE "CHANGELOG.md|README.md|agent.md|docs/.*\.md$" || true)
+  if [ -n "$code_files" ]; then
+    echo ""
+    echo "❌ 拦截：本轮 push 含功能/代码改动，但未更新 CHANGELOG.md"
+    echo "────────────────────────────────────────────"
+    echo "待 push 的 commit："
+    git log --oneline "$range"
+    echo "────────────────────────────────────────────"
+    echo "非文档改动文件："
+    echo "$code_files"
+    echo "────────────────────────────────────────────"
+    echo "请先补 CHANGELOG.md（可跑 ./scripts/changelog-draft.sh 生成草稿插入顶部），"
+    echo "提交后再 push。确无需记录则在 commit message 加 [skip-changelog]。"
+    echo ""
+    exit 1
+  fi
+done
+
+exit 0
