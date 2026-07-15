@@ -20,11 +20,15 @@ function shanghaiDate() { return new Date().toLocaleDateString('en-CA', { timeZo
 function esc(s) {
   return String(s == null ? '' : s).replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
 }
-// 时间格式化为「日期 时分」（去掉秒，压缩宽度）；纯日期或空值原样返回
+// 时间统一压成「YY-MM-DD HH:MM」（年份两位、去秒、压缩列宽）；纯日期或空值原样兜底
 function fmtTime(s) {
   s = String(s == null ? '' : s).trim();
   if (!s) return '';
-  return s.length >= 16 ? s.substring(0, 16) : s;
+  let m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);           // 纯日期 YYYY-MM-DD
+  if (m) return m[1].slice(2) + '-' + m[2] + '-' + m[3];
+  m = s.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/); // 日期+时间（含/不含秒）
+  if (m) return m[1].slice(2) + '-' + m[2] + '-' + m[3] + ' ' + m[4] + ':' + m[5];
+  return s;
 }
 function catEmoji(name) {
   if (/语文/.test(name)) return '📖';
