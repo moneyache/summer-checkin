@@ -4,6 +4,17 @@
 > 项目上下文见 `agent.md`，完整系统架构见 `README.md`。
 > 遵循「较新的在上」的倒序排列。
 
+## 2026-07-16 · 修复：打卡/兑换时间 +8 小时时区 bug
+
+### 修复（线上已部署 + 历史数据已回写）
+- **根因**：`sc_do_checkin` / `sc_redeem` 曾用 `current_timestamp AT TIME ZONE 'Asia/Shanghai'` 写入 `timestamptz` 列 `checkin_at` / `redeemed_at`。该写法把「上海墙钟时间」当成了无时区时间戳，Postgres 再按 UTC 解释存储 → 实际存成了「上海时间 +8h」；而显示侧 `to_char(checkin_at AT TIME ZONE 'Asia/Shanghai', ...)` 又转换一次，导致**上午打卡显示为下午（如 09:59 → 17:59）**。
+- **修复**：写入值改为 `current_timestamp`（即真实 instant，显示侧 `AT TIME ZONE` 转换正确）。涉及 `.build/functions.sql`（`sc_do_checkin` / `sc_redeem` 的 INSERT）与 `.build/migrate_time.sql`（两列 `DEFAULT`）。
+- **历史数据回写**：`created_at`（由 `default now()` 写入，永不受时区 bug 影响）即真实插入瞬间，已用它对 `checkin_at` / `redeemed_at` 全量回写（`.build/fix_time.sql`，幂等）。今日（2026-07-16）那条 17:59 已修正为 09:59；旧记录的「中午12:00占位」也升级为真实打卡时刻。
+- **验证**：`checkin_at_sh` 与 `created_at_sh` 现已完全一致（hour_diff=0）。
+- **无需改前端**：页面直接读 RPC 返回的 `checkin_at_sh` / `redeemed_at_sh`，刷新即生效。
+
+---
+
 ## 2026-07-15 · 总览表格列宽优化（细项列加宽）
 
 ### 优化
