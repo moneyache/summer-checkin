@@ -157,21 +157,19 @@ ALTER TABLE sc_memberships ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "public read tenants" ON sc_tenants;
 CREATE POLICY "public read tenants" ON sc_tenants FOR SELECT USING (true);
 
--- sc_memberships：只读自己的
+-- sc_memberships：仅通过 RPC 访问，不开放直接读
 DROP POLICY IF EXISTS "read own memberships" ON sc_memberships;
-CREATE POLICY "read own memberships" ON sc_memberships FOR SELECT
-  USING (username = current_setting('request.jwt.claims', true)::json->>'sub'
-         OR username = 'qianteng');  -- 超管可读全部
+CREATE POLICY "read own memberships" ON sc_memberships FOR SELECT USING (false);
 
 COMMIT;
 
 -- ==========================================
 -- 迁移完成检查
 -- ==========================================
-SELECT 'sc_tenants' AS tbl, count(*) AS rows FROM sc_tenants
+SELECT 'sc_tenants' AS tbl, count(*) AS cnt FROM sc_tenants
 UNION ALL
-SELECT 'sc_memberships', count(*)::text FROM sc_memberships
+SELECT 'sc_memberships', count(*) FROM sc_memberships
 UNION ALL
-SELECT 'sc_categories', count(*)::text FROM sc_categories WHERE tenant_id IS NOT NULL
+SELECT 'sc_categories', count(*) FROM sc_categories WHERE tenant_id IS NOT NULL
 UNION ALL
-SELECT 'sc_checkins', count(*)::text FROM sc_checkins WHERE tenant_id IS NOT NULL;
+SELECT 'sc_checkins', count(*) FROM sc_checkins WHERE tenant_id IS NOT NULL;
