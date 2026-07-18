@@ -79,9 +79,9 @@
   </div>
 
   <div class="passcode-wrap">
-    <label>🔑 管理员口令（选填）</label>
-    <input type="password" id="passcode" placeholder="输入正确口令成为管理员">
-    <div class="hint">不填则注册为普通账号；现有账号均为普通账号。</div>
+    <label>🔑 空间管理员口令（选填）</label>
+    <input type="password" id="passcode" placeholder="输入空间口令成为管理员">
+    <div class="hint">不填则注册为普通成员，后续可申请加入空间</div>
   </div>
 
   <button class="btn" id="regBtn" onclick="doRegister()">注 册</button>
@@ -109,15 +109,29 @@ async function doRegister() {
   const result = await registerUser(username, password, passcode);
   if (result.success) {
     errEl.style.color = '#27ae60';
-    errEl.textContent = result.isAdmin ? '注册成功！管理员账号已创建 🎉' : '注册成功！跳转中...';
-    setTimeout(() => { window.location.href = 'index.html'; }, 700);
+    // 多租户：口令绑定成功 → 直接进空间；未绑定 → 去选择空间
+    const bound = result.bindResult && result.bindResult.ok;
+    if (bound) {
+      errEl.textContent = '注册成功！你已成为「' + result.bindResult.tenant_name + '」的管理员 🎉';
+      setTenantCookie(result.bindResult.tenant_id);
+      setTimeout(() => { window.location.href = 'index.html'; }, 800);
+    } else {
+      errEl.textContent = passcode ? (result.bindResult ? result.bindResult.error : '口令无效，已注册为普通成员') : '注册成功！请选择空间...';
+      setTimeout(() => { window.location.href = 'spaces.html'; }, 800);
+    }
   } else {
     errEl.style.color = '#e74c3c'; errEl.textContent = result.error;
     btn.disabled = false; btn.textContent = '注 册';
   }
 }
 document.getElementById('password2').addEventListener('keydown', e => { if (e.key === 'Enter') doRegister(); });
-checkLoginStatus().then(status => { if (status.loggedIn) window.location.href = 'index.html'; });
+checkLoginStatus().then(async status => {
+  if (status.loggedIn) {
+    const route = await routeAfterLogin(status.username);
+    const dest = route.action === 'nospace' ? 'spaces.html' : 'index.html';
+    window.location.href = dest;
+  }
+});
 </script>
 </body>
 </html>

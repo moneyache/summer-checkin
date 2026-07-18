@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>选择空间 · 暑假打卡小能手</title>
+<link rel="manifest" href="manifest.json">
+<style>
+  :root {
+    --bg: #FFF8F0; --card: #FFFFFF; --text: #333333; --muted: #888888;
+    --primary: #FF8C42; --primary-hover: #E67A35; --green: #34C759;
+    --red: #FF3B30; --shadow: 0 2px 12px rgba(0,0,0,0.06);
+    --radius: 14px;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+  .container { max-width: 520px; margin: 0 auto; padding: 32px 20px; }
+  .header { text-align: center; margin-bottom: 32px; }
+  .logo { font-size: 48px; }
+  .title { font-size: 24px; font-weight: 700; margin: 12px 0 4px; }
+  .subtitle { color: var(--muted); font-size: 15px; }
+  .user-info { background: var(--card); border-radius: var(--radius); padding: 16px 20px; margin-bottom: 20px; box-shadow: var(--shadow); display: flex; justify-content: space-between; align-items: center; }
+  .user-name { font-weight: 600; font-size: 16px; }
+  .logout-btn { color: var(--red); background: none; border: none; font-size: 14px; cursor: pointer; }
+  .section-title { font-size: 16px; font-weight: 600; margin-bottom: 12px; }
+  .space-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 28px; }
+  .space-card { background: var(--card); border-radius: var(--radius); padding: 18px 20px; box-shadow: var(--shadow); display: flex; justify-content: space-between; align-items: center; cursor: pointer; transition: transform 0.15s; }
+  .space-card:hover { transform: translateY(-1px); }
+  .space-card:active { transform: scale(0.98); }
+  .space-name { font-size: 17px; font-weight: 600; }
+  .space-meta { font-size: 13px; color: var(--muted); margin-top: 2px; }
+  .apply-btn { background: var(--primary); color: #fff; border: none; border-radius: 8px; padding: 8px 18px; font-size: 14px; font-weight: 600; cursor: pointer; }
+  .apply-btn:hover { background: var(--primary-hover); }
+  .apply-btn:disabled { background: #CCC; cursor: not-allowed; }
+  .password-section { background: var(--card); border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow); }
+  .input-group { display: flex; gap: 8px; margin-top: 8px; }
+  .input-group input { flex: 1; padding: 10px 14px; border: 1.5px solid #E0E0E0; border-radius: 8px; font-size: 15px; }
+  .input-group button { background: var(--green); color: #fff; border: none; border-radius: 8px; padding: 10px 20px; font-size: 14px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+  .toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: #333; color: #fff; padding: 10px 24px; border-radius: 8px; font-size: 14px; z-index: 1000; opacity: 0; transition: opacity 0.3s; pointer-events: none; }
+  .toast.show { opacity: 1; }
+  .toast.error { background: var(--red); }
+  .toast.success { background: var(--green); }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <div class="logo">🏖️</div>
+    <div class="title">暑假打卡小能手</div>
+    <div class="subtitle">选择一个空间开始打卡</div>
+  </div>
+
+  <div class="user-info">
+    <span class="user-name" id="userName">...</span>
+    <button class="logout-btn" onclick="logoutUser()">退出登录</button>
+  </div>
+
+  <div class="section-title">📋 可用空间</div>
+  <div class="space-list" id="spaceList">
+    <div style="color:var(--muted);text-align:center;padding:20px">加载中...</div>
+  </div>
+
+  <div class="password-section">
+    <div class="section-title">🔑 有管理员口令？</div>
+    <p style="color:var(--muted);font-size:14px;margin-bottom:8px">输入空间管理员给你的口令，直接成为管理员</p>
+    <div class="input-group">
+      <input type="text" id="passcodeInput" placeholder="输入口令（如 111111）" maxlength="20">
+      <button onclick="bindWithPasscode()">绑定</button>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script src="lib/supabase.min.js"></script>
+<script src="lib/crypto-js.min.js"></script>
+<script src="auth.js"></script>
+<script>
+let _tenants = [];
+
+// 初始化
+(async function init() {
+  const st = await checkLoginStatus();
+  if (!st.loggedIn) { location.href = 'login.html'; return; }
+  document.getElementById('userName').textContent = st.username;
+
+  // 检查是否已有活跃空间
+  const myTenants = await fetchMyTenants(st.username);
+  if (myTenants.length > 0) {
+    // 已有空间，直接进入
+    setTenantCookie(myTenants[0].tenant_id);
+    location.href = 'index.html';
+    return;
+  }
+
+  // 加载空间列表
+  _tenants = await listTenants();
+  renderSpaces();
+})();
+
+function renderSpaces() {
+  const el = document.getElementById('spaceList');
+  if (!_tenants.length) {
+    el.innerHTML = '<div style="color:var(--muted);text-align:center;padding:20px">暂无可用空间，请联系超管创建～</div>';
+    return;
+  }
+  el.innerHTML = _tenants.map(t =>
+    '<div class="space-card">' +
+      '<div><div class="space-name">' + escapeHtml(t.name) + '</div>' +
+      '<div class="space-meta">' + (t.member_count || 0) + ' 位成员</div></div>' +
+      '<button class="apply-btn" onclick="applyToJoin(\'' + t.id + '\', this)">申请加入</button>' +
+    '</div>'
+  ).join('');
+}
+
+async function applyToJoin(tenantId, btn) {
+  btn.disabled = true;
+  btn.textContent = '申请中...';
+  const result = await applyJoin(tenantId);
+  if (result && result.ok) {
+    showToast('申请已提交，等待管理员审批', 'success');
+    btn.textContent = '已申请';
+  } else {
+    showToast(result ? result.error : '操作失败', 'error');
+    btn.disabled = false;
+    btn.textContent = '申请加入';
+  }
+}
+
+async function bindWithPasscode() {
+  const input = document.getElementById('passcodeInput');
+  const passcode = input.value.trim();
+  if (!passcode) { showToast('请输入口令', 'error'); return; }
+
+  const user = getCookie('sc_user');
+  const sb = getSupabase();
+  const { data } = await sb.rpc('sc_bind_with_passcode', {
+    p_username: user, p_passcode: passcode
+  });
+
+  if (data && data.ok) {
+    setTenantCookie(data.tenant_id);
+    showToast('绑定成功！进入「' + data.tenant_name + '」', 'success');
+    setTimeout(() => { location.href = 'index.html'; }, 800);
+  } else {
+    showToast(data ? data.error : '口令无效', 'error');
+  }
+}
+
+let _toastTimer = null;
+function showToast(msg, type) {
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.className = 'toast show'; if (type) el.classList.add(type);
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => el.classList.remove('show'), 2500);
+}
+</script>
+</body>
+</html>

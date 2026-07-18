@@ -33,6 +33,13 @@ body {
 .app-header .brand .logo { font-size: 26px; }
 .app-header .user-area { display: flex; align-items: center; gap: 10px; font-size: 14px; }
 .app-header .badge-role { background: rgba(255,255,255,0.25); padding: 2px 8px; border-radius: 10px; font-size: 12px; }
+.app-header .tenant-name { font-size: 12px; font-weight: 400; opacity: 0.8; margin-left: 2px; }
+.app-header .tenant-select {
+  background: rgba(255,255,255,0.2); color: #fff; border: 1px solid rgba(255,255,255,0.3);
+  border-radius: 8px; padding: 4px 8px; font-size: 13px; font-weight: 600; outline: none;
+  cursor: pointer; max-width: 140px;
+}
+.app-header .tenant-select option { color: #333; background: #fff; }
 .app-header .balance-pill {
   background: var(--sun); color: #E65100; font-weight: 800;
   padding: 4px 12px; border-radius: 14px; font-size: 14px;

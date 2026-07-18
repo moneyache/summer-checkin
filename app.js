@@ -1,12 +1,15 @@
 /* ============================================================
- * 暑假打卡小能手 · 主应用（SPA）
+ * 暑假打卡小能手 · 主应用（SPA）v2 多租户
  * 普通用户：打卡(音效+鼓励+幂等) / 我的记录 / 积分商城 / 我的兑换
- * 管理员：打卡配置 / 总览（所有账号打卡 + 积分消耗）
- * 依赖：auth.js（Supabase 登录态、isAdmin）、Supabase RPC
+ * 管理员（空间级）：打卡配置 / 总览 / 成员管理 / 审批
+ * 超管：空间切换 / 创建空间
+ * 依赖：auth.js（Supabase 登录态、多租户上下文）、Supabase RPC
  * ============================================================ */
 
 // ---------- 状态 ----------
-let USER = null;                       // { username, isAdmin, balance }
+let USER = null;                       // { username, role, balance }
+let CURRENT_TENANT = null;             // { tenant_id, tenant_name, role }
+let ALL_TENANTS = [];                  // 超管的所有空间列表
 let CFG = { categories: [], itemsByCat: {}, prizes: [] };
 let TODAY = shanghaiDate();
 let DONE = new Set();                  // 今天已打卡的 key: catId|itemId 或 catId|c:customText
@@ -20,13 +23,12 @@ function shanghaiDate() { return new Date().toLocaleDateString('en-CA', { timeZo
 function esc(s) {
   return String(s == null ? '' : s).replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
 }
-// 时间统一压成「YY-MM-DD HH:MM」（年份两位、去秒、压缩列宽）；纯日期或空值原样兜底
 function fmtTime(s) {
   s = String(s == null ? '' : s).trim();
   if (!s) return '';
-  let m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);           // 纯日期 YYYY-MM-DD
+  let m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if (m) return m[1].slice(2) + '-' + m[2] + '-' + m[3];
-  m = s.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/); // 日期+时间（含/不含秒）
+  m = s.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/);
   if (m) return m[1].slice(2) + '-' + m[2] + '-' + m[3] + ' ' + m[4] + ':' + m[5];
   return s;
 }
@@ -81,13 +83,17 @@ function tone(freq, start, dur, type, gain) {
 function playCheckinSound() { const ac = getAudio(); if (ac && ac.resume) ac.resume(); tone(523, 0, 0.18, 'triangle', 0.22); tone(659, 0.12, 0.18, 'triangle', 0.22); tone(784, 0.24, 0.32, 'triangle', 0.22); }
 function playRewardSound() { const ac = getAudio(); if (ac && ac.resume) ac.resume(); [523, 659, 784, 1047].forEach((f, i) => tone(f, i * 0.1, 0.32, 'square', 0.16)); }
 
+// ---------- 空间管理 ----------
+function tid() { return CURRENT_TENANT ? CURRENT_TENANT.tenant_id : null; }
+
 // ---------- 数据加载 ----------
 async function loadConfig() {
   const sb = getSupabase();
+  const t = tid();
   const [cats, items, prizes] = await Promise.all([
-    sb.from('sc_categories').select('*').order('sort_order'),
-    sb.from('sc_items').select('*').order('sort_order'),
-    sb.from('sc_prizes').select('*').order('sort_order'),
+    sb.from('sc_categories').select('*').eq('tenant_id', t).order('sort_order'),
+    sb.from('sc_items').select('*').eq('tenant_id', t).order('sort_order'),
+    sb.from('sc_prizes').select('*').eq('tenant_id', t).order('sort_order'),
   ]);
   CFG.categories = cats.data || [];
   CFG.prizes = prizes.data || [];
@@ -95,24 +101,34 @@ async function loadConfig() {
   (items.data || []).forEach(it => { (CFG.itemsByCat[it.category_id] = CFG.itemsByCat[it.category_id] || []).push(it); });
 }
 async function loadBalance() {
-  const { data } = await getSupabase().rpc('sc_get_balance', { p_username: USER.username });
+  const { data } = await getSupabase().rpc('sc_get_balance', { p_tenant_id: tid(), p_username: USER.username });
   return data || 0;
 }
 async function buildDone() {
   DONE = new Set();
-  const { data } = await getSupabase().rpc('sc_my_checkins', { p_username: USER.username });
+  const { data } = await getSupabase().rpc('sc_my_checkins', { p_tenant_id: tid(), p_username: USER.username });
   (data || []).forEach(r => { if (r.checkin_date === TODAY) DONE.add(r.category_id + '|' + (r.item_id || ('c:' + r.custom_text))); });
 }
 
 // ---------- 头部 / 导航 / 路由 ----------
 function renderHeader() {
-  const role = USER.isAdmin ? '<span class="badge-role">管理员</span>' : '<span class="badge-role">小用户</span>';
+  const isAdm = CURRENT_TENANT && (CURRENT_TENANT.role === 'admin' || CURRENT_TENANT.role === 'super_admin');
+  const roleBadge = CURRENT_TENANT.role === 'super_admin' ? '<span class="badge-role">超管</span>'
+    : (isAdm ? '<span class="badge-role">管理员</span>' : '<span class="badge-role">成员</span>');
+  const tenantSwitcher = CURRENT_TENANT.role === 'super_admin' && ALL_TENANTS.length > 1
+    ? '<select class="tenant-select" onchange="onTenantSwitch(this.value)">' +
+      ALL_TENANTS.map(t => '<option value="' + t.tenant_id + '"' +
+        (t.tenant_id === CURRENT_TENANT.tenant_id ? ' selected' : '') + '>' +
+        esc(t.tenant_name) + '</option>').join('') + '</select>'
+    : '';
+
   $('#header').innerHTML =
     '<div class="top">' +
-      '<div class="brand"><span class="logo">🏖️</span> 暑假打卡小能手</div>' +
-      '<div class="user-area">' +
+      '<div class="brand"><span class="logo">🏖️</span> 暑假打卡小能手' +
+        '<span class="tenant-name">' + esc(CURRENT_TENANT.tenant_name) + '</span></div>' +
+      '<div class="user-area">' + tenantSwitcher +
         '<span class="balance-pill" id="balPill">' + USER.balance + ' 分</span>' +
-        '<span>' + esc(USER.username) + '</span>' + role +
+        '<span>' + esc(USER.username) + '</span>' + roleBadge +
         '<a href="javascript:void(0)" class="logout" onclick="logoutUser()">退出</a>' +
       '</div>' +
     '</div>';
@@ -128,7 +144,8 @@ function renderNav() {
     ['mall', '🛍️', '积分商城'],
     ['redeem', '🧾', '我的兑换'],
   ];
-  if (USER.isAdmin) { tabs.push(['admin', '⚙️', '配置']); tabs.push(['overview', '📊', '总览']); }
+  const isAdm = CURRENT_TENANT && (CURRENT_TENANT.role === 'admin' || CURRENT_TENANT.role === 'super_admin');
+  if (isAdm) { tabs.push(['admin', '⚙️', '配置']); tabs.push(['overview', '📊', '总览']); }
   const cur = location.hash.replace('#', '') || 'checkin';
   $('#nav').innerHTML = tabs.map(t =>
     '<button class="' + (t[0] === cur ? 'active' : '') + '" onclick="location.hash=\'' + t[0] + '\'"><span class="ic">' + t[1] + '</span>' + t[2] + '</button>'
@@ -174,7 +191,7 @@ function openCheckinModal(cat) {
   if (cat.allow_custom) {
     html += '<div style="margin-top:10px;border-top:1px dashed #EEE;padding-top:12px">' +
       '<div class="muted" style="margin-bottom:6px">✍️ 我还可以自己填做了啥（如：篮球 / 跑步 / 游泳）</div>' +
-      '<div class="custom-row"><input id="customText" placeholder="我做了…" maxlength="20"><button id="customBtn">打卡 +' + cat.default_points + '</button></div></div>';
+      '<div class="custom-row"><input id="customText" placeholder="我做了…" maxlength="20"><button id="customBtn">打卡 +3</button></div></div>';
   }
   const modal = openModal(catEmoji(cat.name) + ' ' + esc(cat.name), html);
   modal.querySelectorAll('.item-btn:not([disabled])').forEach(btn => {
@@ -199,7 +216,7 @@ function openCheckinModal(cat) {
       const txt = inp.value.trim();
       if (!txt) { toast('先写一下你做了啥吧～'); return; }
       cb.disabled = true;
-      const res = await doCheckin(cat, null, txt, cat.default_points);
+      const res = await doCheckin(cat, null, txt, 3);
       if (res) {
         if (res.is_new) { celebrate('🎉', '打卡成功！', '+' + res.earned + ' 积分 · ' + txt); playCheckinSound(); }
         else toast('今天已经打过卡啦～');
@@ -211,6 +228,7 @@ function openCheckinModal(cat) {
 }
 async function doCheckin(category, item, customText, points) {
   const { data, error } = await getSupabase().rpc('sc_do_checkin', {
+    p_tenant_id: tid(),
     p_username: USER.username,
     p_category_id: category.id,
     p_item_id: item ? item.id : null,
@@ -221,14 +239,13 @@ async function doCheckin(category, item, customText, points) {
   return data;
 }
 
-// ---------- 视图：我的记录（支持按时间/大类/细项筛选） ----------
-let MY_CHECKINS = null;                 // 最近一次拉取的全部打卡记录（用于本地筛选）
+// ---------- 视图：我的记录 ----------
+let MY_CHECKINS = null;
 let RECFILTER = { time: 'all', date: '', cat: 'all', item: 'all' };
 
 function balanceCard() {
   return '<div class="card" style="text-align:center"><div class="muted">我的总积分</div><div style="font-size:32px;font-weight:800;color:var(--orange-deep)">' + USER.balance + ' 分</div></div>';
 }
-// 解析一条记录的展示字段
 function recInfo(r) {
   const cat = CFG.categories.find(c => c.id === r.category_id);
   const it = r.item_id ? (CFG.itemsByCat[r.category_id] || []).find(i => i.id === r.item_id) : null;
@@ -238,14 +255,12 @@ function recInfo(r) {
 function optionsHtml(pairs, cur) {
   return pairs.map(p => '<option value="' + esc(p[0]) + '"' + (String(p[0]) === String(cur) ? ' selected' : '') + '>' + esc(p[1]) + '</option>').join('');
 }
-// 上海时区“今天往前 n 天”的日期字符串
 function dateDaysAgoSH(n) {
   const [y, m, d] = TODAY.split('-').map(Number);
   const base = new Date(Date.UTC(y, m - 1, d));
   base.setUTCDate(base.getUTCDate() - n);
   return base.toISOString().slice(0, 10);
 }
-// 当前所选大类下，记录中出现过的细项（名称去重，含自填内容）
 function recDistinctItems(list, catId) {
   const set = new Set();
   list.forEach(r => { const i = recInfo(r); if (catId === 'all' || i.catId === catId) set.add(i.title); });
@@ -262,7 +277,7 @@ function recPassFilter(r) {
   return true;
 }
 async function renderRecords() {
-  const { data, error } = await getSupabase().rpc('sc_my_checkins', { p_username: USER.username });
+  const { data, error } = await getSupabase().rpc('sc_my_checkins', { p_tenant_id: tid(), p_username: USER.username });
   MY_CHECKINS = error ? [] : (data || []);
   drawRecords();
 }
@@ -270,7 +285,6 @@ function drawRecords() {
   const all = MY_CHECKINS || [];
   const f = RECFILTER;
   let html = '<div class="section-title">📒 我的打卡记录</div>' + balanceCard();
-  // 筛选栏：时间 / 大类 / 细项
   const timeOpts = [['all', '全部时间'], ['today', '今天'], ['7d', '近7天'], ['month', '本月'], ['pick', '指定日期']];
   const catOpts = [['all', '全部大类']].concat(CFG.categories.map(c => [c.id, c.name]));
   const itemOpts = [['all', '全部细项']].concat(recDistinctItems(all, f.cat).map(t => [t, t]));
@@ -303,7 +317,7 @@ function onRecFilter() {
   const fi = $('#fItem'); RECFILTER.item = fi ? fi.value : 'all';
   drawRecords();
 }
-function onRecCatChange() {                 // 切换大类时重置细项选择
+function onRecCatChange() {
   RECFILTER.cat = $('#fCat').value;
   RECFILTER.item = 'all';
   drawRecords();
@@ -340,8 +354,8 @@ async function renderMall() {
   });
 }
 async function doRedeem(prize) {
-  const idem = USER.username + '|' + prize.id + '|' + Date.now() + '|' + Math.random().toString(36).slice(2);
-  const { data, error } = await getSupabase().rpc('sc_redeem', { p_username: USER.username, p_prize_id: prize.id, p_idem_key: idem });
+  const idem = tid() + '|' + USER.username + '|' + prize.id + '|' + Date.now() + '|' + Math.random().toString(36).slice(2);
+  const { data, error } = await getSupabase().rpc('sc_redeem', { p_tenant_id: tid(), p_username: USER.username, p_prize_id: prize.id, p_idem_key: idem });
   if (error) { toast('兑换失败：' + (error.message || '请重试'), 'error'); return; }
   if (!data.ok) { toast(data.error || '兑换失败', 'error'); return; }
   if (data.duplicate) { toast('已经兑换过啦～'); updateBalance(data.balance); return; }
@@ -351,9 +365,9 @@ async function doRedeem(prize) {
   renderMall();
 }
 
-// ---------- 视图：我的兑换（消耗） ----------
+// ---------- 视图：我的兑换 ----------
 async function renderRedeem() {
-  const { data, error } = await getSupabase().rpc('sc_my_redemptions', { p_username: USER.username });
+  const { data, error } = await getSupabase().rpc('sc_my_redemptions', { p_tenant_id: tid(), p_username: USER.username });
   let html = '<div class="section-title">🧾 我的积分消耗</div>' + balanceCard();
   if (error || !data || !data.length) { html += '<div class="empty">还没有兑换过奖品哦～</div>'; }
   else {
@@ -374,7 +388,7 @@ async function renderAdmin() {
   // 大类
   html += '<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><b>📚 打卡大类</b><button class="btn-sm btn-edit" onclick="adminOpenCat(null)">➕ 添加</button></div>';
   CFG.categories.forEach(c => {
-    html += '<div class="rec"><div class="left"><div class="title">' + esc(c.name) + (c.allow_custom ? ' <span class="tag custom">可自填·' + c.default_points + '分</span>' : '') + '</div><div class="sub">细项 ' + ((CFG.itemsByCat[c.id] || []).length) + ' 个</div></div>' +
+    html += '<div class="rec"><div class="left"><div class="title">' + esc(c.name) + (c.allow_custom ? ' <span class="tag custom">可自填</span>' : '') + '</div><div class="sub">细项 ' + ((CFG.itemsByCat[c.id] || []).length) + ' 个</div></div>' +
       '<div style="display:flex;gap:6px"><button class="btn-sm btn-edit" onclick="adminOpenCat(\'' + c.id + '\')">编辑</button><button class="btn-sm btn-del" onclick="adminDelCat(\'' + c.id + '\')">删除</button></div></div>';
   });
   html += '</div>';
@@ -396,6 +410,13 @@ async function renderAdmin() {
     html += '<div class="rec"><div class="left"><div class="title">' + esc(p.emoji || '🎁') + ' ' + esc(p.name) + '</div><div class="sub">' + p.cost + ' 积分 · ' + stock + '</div></div><div style="display:flex;gap:6px"><button class="btn-sm btn-edit" onclick="adminOpenPrize(\'' + p.id + '\')">编辑</button><button class="btn-sm btn-del" onclick="adminDelPrize(\'' + p.id + '\')">删除</button></div></div>';
   });
   html += '</div>';
+
+  // 成员管理（管理员专属）
+  html += '<div class="card"><b>👥 成员管理</b>';
+  html += '<div id="memberList" style="margin-top:8px"><button class="btn-sm btn-edit" onclick="loadMembers()">加载成员列表</button></div>';
+  html += '<div id="pendingApps" style="margin-top:12px"></div>';
+  html += '</div>';
+
   $('#view').innerHTML = html;
 }
 function adminCatChange(v) { ADMIN_CAT = v; renderAdmin(); }
@@ -404,17 +425,13 @@ function adminOpenCat(id) {
   const html =
     '<div class="field"><label>大类名称</label><input id="f_name" value="' + (c ? esc(c.name) : '') + '" placeholder="如：语文学习"></div>' +
     '<div class="field"><label class="checkbox-row"><input type="checkbox" id="f_custom"' + (c && c.allow_custom ? ' checked' : '') + '> 允许孩子自己填写细项（如运动项目）</label></div>' +
-    '<div class="field" id="f_dp_wrap"><label>自定义细项默认积分</label><input id="f_dp" type="number" min="0" value="' + (c ? c.default_points : 3) + '"></div>' +
     '<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">取消</button><button class="btn-primary" style="width:auto;flex:1" onclick="adminSaveCat(\'' + (id || '') + '\')">保存</button></div>';
-  const modal = openModal(id ? '编辑大类' : '添加大类', html);
-  const custom = modal.querySelector('#f_custom'), dpWrap = modal.querySelector('#f_dp_wrap');
-  const toggle = () => { dpWrap.style.display = custom.checked ? 'block' : 'none'; };
-  custom.addEventListener('change', toggle); toggle();
+  openModal(id ? '编辑大类' : '添加大类', html);
 }
 function adminSaveCat(id) {
   const name = $('#f_name').value.trim(); if (!name) { toast('请填写名称', 'error'); return; }
-  const allow_custom = $('#f_custom').checked, dp = parseInt($('#f_dp').value, 10) || 3;
-  getSupabase().rpc('sc_upsert_category', { p_username: USER.username, p_id: id || null, p_name: name, p_allow_custom: allow_custom, p_default_points: dp })
+  const allow_custom = $('#f_custom').checked;
+  getSupabase().rpc('sc_upsert_category', { p_tenant_id: tid(), p_username: USER.username, p_id: id || null, p_name: name, p_allow_custom: allow_custom })
     .then(async ({ data, error }) => {
       if (error || !data || !data.ok) { toast((data && data.error) || '保存失败', 'error'); return; }
       closeModal(); toast('已保存', 'success'); await loadConfig(); renderAdmin();
@@ -422,7 +439,7 @@ function adminSaveCat(id) {
 }
 function adminDelCat(id) {
   if (!confirm('确定删除该大类及其细项？')) return;
-  getSupabase().rpc('sc_delete_category', { p_username: USER.username, p_id: id })
+  getSupabase().rpc('sc_delete_category', { p_tenant_id: tid(), p_username: USER.username, p_id: id })
     .then(async ({ error }) => { if (error) { toast('删除失败', 'error'); return; } await loadConfig(); toast('已删除'); renderAdmin(); });
 }
 function adminOpenItem(id) {
@@ -438,12 +455,12 @@ function adminOpenItem(id) {
 function adminSaveItem(id) {
   const name = $('#f_name').value.trim(); if (!name) { toast('请填写名称', 'error'); return; }
   const pts = parseInt($('#f_pts').value, 10) || 0;
-  getSupabase().rpc('sc_upsert_item', { p_username: USER.username, p_category_id: ADMIN_CAT, p_id: id || null, p_name: name, p_points: pts })
+  getSupabase().rpc('sc_upsert_item', { p_tenant_id: tid(), p_username: USER.username, p_category_id: ADMIN_CAT, p_id: id || null, p_name: name, p_points: pts })
     .then(async ({ data, error }) => { if (error || !data || !data.ok) { toast((data && data.error) || '保存失败', 'error'); return; } closeModal(); toast('已保存', 'success'); await loadConfig(); renderAdmin(); });
 }
 function adminDelItem(id) {
   if (!confirm('删除该细项？')) return;
-  getSupabase().rpc('sc_delete_item', { p_username: USER.username, p_id: id })
+  getSupabase().rpc('sc_delete_item', { p_tenant_id: tid(), p_username: USER.username, p_id: id })
     .then(async ({ error }) => { if (error) { toast('删除失败', 'error'); return; } await loadConfig(); toast('已删除'); renderAdmin(); });
 }
 function adminOpenPrize(id) {
@@ -463,22 +480,73 @@ function adminSavePrize(id) {
   const cost = parseInt($('#f_cost').value, 10) || 0;
   const stockRaw = $('#f_stock').value.trim();
   const stock = stockRaw === '' ? null : (parseInt(stockRaw, 10) || 0);
-  getSupabase().rpc('sc_upsert_prize', { p_username: USER.username, p_id: id || null, p_name: name, p_description: desc, p_cost: cost, p_emoji: emoji, p_stock: stock })
+  getSupabase().rpc('sc_upsert_prize', { p_tenant_id: tid(), p_username: USER.username, p_id: id || null, p_name: name, p_description: desc, p_cost: cost, p_emoji: emoji, p_stock: stock })
     .then(async ({ data, error }) => { if (error || !data || !data.ok) { toast((data && data.error) || '保存失败', 'error'); return; } closeModal(); toast('已保存', 'success'); await loadConfig(); renderAdmin(); });
 }
 function adminDelPrize(id) {
   if (!confirm('下架该奖品？')) return;
-  getSupabase().rpc('sc_delete_prize', { p_username: USER.username, p_id: id })
+  getSupabase().rpc('sc_delete_prize', { p_tenant_id: tid(), p_username: USER.username, p_id: id })
     .then(async ({ error }) => { if (error) { toast('删除失败', 'error'); return; } await loadConfig(); toast('已删除'); renderAdmin(); });
 }
 
+// ---------- 成员管理 ----------
+async function loadMembers() {
+  const { data } = await getSupabase().rpc('sc_admin_overview', { p_tenant_id: tid(), p_username: USER.username });
+  if (!data || !data.ok) { document.getElementById('memberList').innerHTML = '<span class="muted">加载失败</span>'; return; }
+  const users = data.data.users || [];
+  let html = '<div class="table-wrap"><table class="tbl"><thead><tr><th>成员</th><th>打卡</th><th>积分</th><th>操作</th></tr></thead><tbody>';
+  users.forEach(u => {
+    html += '<tr><td>' + esc(u.username) + '</td><td>' + u.checkins + '</td><td>' + u.balance + '</td>' +
+      '<td><button class="btn-sm btn-del" onclick="removeMember(\'' + u.username + '\')">移除</button></td></tr>';
+  });
+  html += '</tbody></table></div>';
+  document.getElementById('memberList').innerHTML = html;
+
+  // 加载待审批
+  loadPendingApps();
+}
+async function loadPendingApps() {
+  const { data } = await getSupabase().rpc('sc_list_applications', { p_tenant_id: tid(), p_username: USER.username });
+  if (!data || !data.length) {
+    document.getElementById('pendingApps').innerHTML = '<div class="muted">没有待审批的申请</div>';
+    return;
+  }
+  let html = '<b>📋 待审批申请</b><div class="table-wrap"><table class="tbl"><thead><tr><th>申请人</th><th>申请时间</th><th>操作</th></tr></thead><tbody>';
+  data.forEach(r => {
+    html += '<tr><td>' + esc(r.username) + '</td><td>' + fmtTime(r.created_at) + '</td>' +
+      '<td><button class="btn-sm btn-edit" onclick="approveApp(\'' + r.username + '\')">通过</button> ' +
+      '<button class="btn-sm btn-del" onclick="rejectApp(\'' + r.username + '\')">拒绝</button></td></tr>';
+  });
+  html += '</tbody></table></div>';
+  document.getElementById('pendingApps').innerHTML = html;
+}
+async function removeMember(username) {
+  if (!confirm('确定移除成员 ' + username + '？其打卡记录和积分将被清除。')) return;
+  const { data } = await getSupabase().rpc('sc_remove_member', { p_tenant_id: tid(), p_admin_username: USER.username, p_member_username: username });
+  if (!data || !data.ok) { toast(data ? data.error : '操作失败', 'error'); return; }
+  toast('已移除');
+  loadMembers();
+}
+async function approveApp(username) {
+  const { data } = await getSupabase().rpc('sc_approve_application', { p_tenant_id: tid(), p_admin_username: USER.username, p_applicant_username: username });
+  if (!data || !data.ok) { toast(data ? data.error : '操作失败', 'error'); return; }
+  toast('已通过');
+  loadPendingApps();
+}
+async function rejectApp(username) {
+  const { data } = await getSupabase().rpc('sc_reject_application', { p_tenant_id: tid(), p_admin_username: USER.username, p_applicant_username: username });
+  if (!data || !data.ok) { toast(data ? data.error : '操作失败', 'error'); return; }
+  toast('已拒绝');
+  loadPendingApps();
+}
+
 // ---------- 视图：管理员总览 ----------
-let OV = null;                  // 总览数据缓存
-let OV_PAGE = 1;                // 打卡记录当前页
-const OV_PAGE_SIZE = 30;        // 每页条数
+let OV = null;
+let OV_PAGE = 1;
+const OV_PAGE_SIZE = 30;
 
 async function renderOverview() {
-  const { data, error } = await getSupabase().rpc('sc_admin_overview', { p_username: USER.username });
+  const { data, error } = await getSupabase().rpc('sc_admin_overview', { p_tenant_id: tid(), p_username: USER.username });
   if (error) { $('#view').innerHTML = '<div class="empty">加载失败</div>'; return; }
   if (!data || !data.ok) { $('#view').innerHTML = '<div class="empty">' + (data ? data.error : '无权限') + '</div>'; return; }
   OV = data.data;
@@ -489,7 +557,6 @@ function drawOverview() {
   const d = OV;
   let html = '<div class="section-title">📊 总览（管理员）</div>';
 
-  // 账号表：用户名可点击，展开该用户打卡统计趋势
   html += '<div class="card"><div style="display:flex;align-items:center;gap:6px"><b>👧 所有账号积分</b><span class="muted" style="font-weight:400">（点用户名看打卡趋势）</span></div>' +
     '<div class="table-wrap" style="margin-top:8px"><table class="tbl"><thead><tr><th>账号</th><th>已赚</th><th>已花</th><th>余额</th><th>打卡</th></tr></thead><tbody>';
   (d.users || []).forEach(u => {
@@ -498,7 +565,6 @@ function drawOverview() {
   });
   html += '</tbody></table></div></div>';
 
-  // 全部打卡记录：30 条/页，按打卡时间倒序（最新在前）
   const list = (d.checkins || []).slice().sort((a, b) => (b.checkin_at_sh || '').localeCompare(a.checkin_at_sh || ''));
   const totalPages = Math.max(1, Math.ceil(list.length / OV_PAGE_SIZE));
   if (OV_PAGE > totalPages) OV_PAGE = totalPages;
@@ -515,7 +581,6 @@ function drawOverview() {
   });
   html += '</tbody></table></div>' + pagerHtml(OV_PAGE, totalPages, 'ovGoPage') + '</div>';
 
-  // 全部兑换消耗：展示时间
   html += '<div class="card"><b>🛒 全部兑换消耗</b><div class="table-wrap" style="margin-top:8px"><table class="tbl"><thead><tr><th>账号</th><th>奖品</th><th>消耗</th><th class="cell-time">时间</th></tr></thead><tbody>';
   (d.redemptions || []).forEach(r => {
     const dt = fmtTime(r.redeemed_at_sh || '');
@@ -524,7 +589,6 @@ function drawOverview() {
   html += '</tbody></table></div></div>';
 
   $('#view').innerHTML = html;
-  // 绑定用户名点击：展开/收起趋势
   $('#view').querySelectorAll('.lk').forEach(el => {
     el.addEventListener('click', () => {
       const row = el.closest('tr').nextElementSibling;
@@ -542,7 +606,6 @@ function pagerHtml(page, total, fn) {
   s += '</div>';
   return s;
 }
-// 某用户的打卡统计趋势：按天聚合，柱状图展示每日得分
 function userTrendHtml(username) {
   const rows = (OV.checkins || []).filter(r => r.username === username);
   if (!rows.length) return '<div class="muted">暂无打卡记录</div>';
@@ -571,7 +634,7 @@ function openModal(title, bodyHtml) {
   closeModal();
   const mask = document.createElement('div'); mask.className = 'modal-mask';
   mask.innerHTML = '<div class="modal"><h3>' + title + '</h3><div class="modal-body">' + bodyHtml + '</div></div>';
-  $('#modal-root').appendChild(mask);
+  document.getElementById('modal-root').appendChild(mask);
   mask.addEventListener('click', e => { if (e.target === mask) closeModal(); });
   return mask.querySelector('.modal');
 }
@@ -579,9 +642,13 @@ function closeModal() { const m = $('.modal-mask'); if (m) m.remove(); }
 
 // ---------- 初始化 ----------
 (async function init() {
-  const st = await checkLoginStatus();
-  if (!st.loggedIn) { location.href = 'login.html'; return; }
-  USER = { username: st.username, isAdmin: await isAdmin(st.username), balance: 0 };
+  const ctx = await initTenantContext();
+  if (!ctx.loggedIn) { location.href = 'login.html'; return; }
+  if (ctx.needPick || !ctx.tenant) { location.href = 'spaces.html'; return; }
+
+  CURRENT_TENANT = ctx.tenant;
+  ALL_TENANTS = ctx.allTenants || [];
+  USER = { username: ctx.username, role: ctx.tenant.role, balance: 0 };
   await loadConfig();
   USER.balance = await loadBalance();
   renderHeader();

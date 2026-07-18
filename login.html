@@ -92,8 +92,10 @@ async function doLogin() {
   const result = await loginUser(username, password);
   if (result.success) {
     errEl.style.color = '#27ae60'; errEl.textContent = '登录成功，跳转中...';
-    const redirect = new URLSearchParams(window.location.search).get('redirect');
-    setTimeout(() => { window.location.href = redirect || 'index.html'; }, 500);
+    // 多租户路由：查空间 → 无空间去 spaces.html，有空间去 index.html
+    const route = await routeAfterLogin(username);
+    const dest = route.action === 'nospace' ? 'spaces.html' : 'index.html';
+    setTimeout(() => { window.location.href = dest; }, 500);
   } else {
     errEl.style.color = '#e74c3c'; errEl.textContent = result.error;
     btn.disabled = false; btn.textContent = '登 录';
@@ -101,10 +103,11 @@ async function doLogin() {
 }
 document.getElementById('password').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
 document.getElementById('username').addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('password').focus(); });
-checkLoginStatus().then(status => {
+checkLoginStatus().then(async status => {
   if (status.loggedIn) {
-    const redirect = new URLSearchParams(window.location.search).get('redirect');
-    window.location.href = redirect || 'index.html';
+    const route = await routeAfterLogin(status.username);
+    const dest = route.action === 'nospace' ? 'spaces.html' : 'index.html';
+    window.location.href = dest;
   }
 });
 </script>
