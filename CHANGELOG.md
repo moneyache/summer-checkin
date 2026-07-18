@@ -4,6 +4,28 @@
 > 项目上下文见 `agent.md`，完整系统架构见 `README.md`。
 > 遵循「较新的在上」的倒序排列。
 
+## 2026-07-18 · v2 多租户架构
+
+### 新增
+- **多租户空间体系**：超管可创建多个「空间」，每个空间独立配置打卡项、积分商城、成员
+- 角色体系：`super_admin`（仅超管）/ `admin`（凭空间口令注册）/ `member`（申请审批加入）
+- 新建 `sc_tenants` 空间表、`sc_memberships` 绑定关系表（替代旧 `sc_admins`）
+- 所有 `sc_*` 业务表新增 `tenant_id` 列，积分主键升级为 `(tenant_id, username)`
+- 新增 10 个 RPC：建空间、口令绑定、申请审批、成员管理、空间切换
+- 新增 `spaces.html` 选择空间/申请加入/口令绑定页
+- 超管头部空间切换器，Cookie `sc_last_tenant` 记忆上次空间
+- 管理员可审批新成员申请、移除成员（含清除打卡记录）
+
+### 改动
+- 登录后走 `routeAfterLogin` 按空间数量分流（无空间→选择页 / 有空间→首页）
+- 注册口令从全局管理员改为**空间管理员口令**，匹配后自动绑定为空间 admin
+- 现有数据全部归入默认空间「华宇之家」
+
+### 涉及文件
+- `db/migration_v2.sql`、`db/functions_v2.sql`（24 个 RPC）
+- `auth.js`、`app.js`、`spaces.html`、`login.html`、`register.html`、`styles.css`
+
+---
 ## 2026-07-16 · 修复：打卡/兑换时间 +8 小时时区 bug
 
 ### 修复（线上已部署 + 历史数据已回写）
