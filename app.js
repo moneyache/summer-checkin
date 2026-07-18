@@ -113,7 +113,7 @@ async function buildDone() {
 // ---------- 头部 / 导航 / 路由 ----------
 function renderHeader() {
   const isAdm = CURRENT_TENANT && (CURRENT_TENANT.role === 'admin' || CURRENT_TENANT.role === 'super_admin');
-  const roleBadge = CURRENT_TENANT.role === 'super_admin' ? '<span class="badge-role">超管</span>'
+  const roleBadge = CURRENT_TENANT.role === 'super_admin' ? '<a href="admin.html" class="badge-role badge-link">超管</a>'
     : (isAdm ? '<span class="badge-role">管理员</span>' : '<span class="badge-role">成员</span>');
   const tenantSwitcher = CURRENT_TENANT.role === 'super_admin' && ALL_TENANTS.length > 1
     ? '<select class="tenant-select" onchange="onTenantSwitch(this.value)">' +
