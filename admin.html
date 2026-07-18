@@ -67,6 +67,28 @@
   .toast.show { opacity:1; }
   .toast.error { background:var(--danger); }
   .toast.success { background:var(--success); }
+
+  /* Mobile responsive */
+  @media (max-width: 768px) {
+    .layout { flex-direction: column; }
+    .sidebar { width: 100%; border-right: none; border-bottom: 1px solid #E5E7EB; padding: 12px 0; }
+    .sidebar h2 { font-size: 16px; padding: 0 16px 12px; margin-bottom: 8px; }
+    .space-list { display: flex; flex-direction: row; overflow-x: auto; padding: 0 16px 8px; gap: 8px; -webkit-overflow-scrolling: touch; }
+    .space-list .space-item { white-space: nowrap; margin-bottom: 0; flex-shrink: 0; }
+    .space-list .space-item .danger { display: none; }
+    .sidebar-footer { display: flex; align-items: center; gap: 10px; padding: 8px 16px; border-top: none; }
+    .sidebar-footer .btn { flex: 1; }
+    .main { padding: 12px 14px; }
+    .main h2 { font-size: 16px; }
+    .card { padding: 12px; }
+    /* 表格转卡片 */
+    .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    table { min-width: 600px; font-size: 12px; }
+    th, td { padding: 8px 10px; }
+    .btn-sm { padding: 4px 8px; font-size: 11px; }
+    .modal { max-width: 92vw; padding: 18px; }
+    .modal h3 { font-size: 16px; }
+  }
 </style>
 </head>
 <body>
