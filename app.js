@@ -129,6 +129,7 @@ function renderHeader() {
       '<div class="user-area">' + tenantSwitcher +
         '<span class="balance-pill" id="balPill">' + USER.balance + ' 分</span>' +
         '<span>' + esc(USER.username) + '</span>' + roleBadge +
+        (CURRENT_TENANT.role === 'super_admin' ? '<a href="admin.html" class="admin-link">⚙️ 后台</a>' : '') +
         '<a href="javascript:void(0)" class="logout" onclick="logoutUser()">退出</a>' +
       '</div>' +
     '</div>';
