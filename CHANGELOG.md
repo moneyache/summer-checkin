@@ -4,6 +4,18 @@
 > 项目上下文见 `agent.md`，完整系统架构见 `README.md`。
 > 遵循「较新的在上」的倒序排列。
 
+## 2026-07-18 · 超管后台 + 空间可视化管理
+
+### 新增
+- `admin.html`：超管专属后台，**不再需要写 SQL 管理空间和账号**
+  - 左侧空间列表：查看所有空间及成员数，点「×」删除空间
+  - 右侧成员管理：按空间查看成员，一键升/降角色、移除成员
+  - 创建空间弹窗（名字+口令）、强制绑定用户弹窗（选用户→选空间→选角色）
+- 4 个超管 RPC：`sc_admin_all_users`、`sc_admin_delete_tenant`、`sc_admin_set_role`、`sc_admin_bind_user`
+
+### 涉及文件
+- `admin.html`、`db/functions_admin.sql`
+
 ## 2026-07-18 · v2 多租户架构
 
 ### 新增
