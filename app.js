@@ -124,7 +124,7 @@ function renderHeader() {
 
   $('#header').innerHTML =
     '<div class="top">' +
-      '<div class="brand"><span class="logo">🏖️</span> 暑假打卡小能手' +
+      '<div class="brand"><span class="logo">🏖️</span><span class="brand-text">暑假打卡小能手</span>' +
         '<span class="tenant-name">' + esc(CURRENT_TENANT.tenant_name) + '</span></div>' +
       '<div class="user-area">' + tenantSwitcher +
         '<span class="balance-pill" id="balPill">' + USER.balance + ' 分</span>' +

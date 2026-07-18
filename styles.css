@@ -41,7 +41,6 @@ body {
   border-radius: 8px; padding: 4px 8px; font-size: 13px; font-weight: 600; outline: none;
   cursor: pointer; max-width: 140px;
 }
-.app-header .tenant-select option { color: #333; background: #fff; }
 .app-header .balance-pill {
   background: var(--sun); color: #E65100; font-weight: 800;
   padding: 4px 12px; border-radius: 14px; font-size: 14px;
@@ -246,3 +245,18 @@ table.tbl th { color: var(--muted); font-weight: 700; font-size: 12px; }
 .pg-btn { border: none; background: var(--sky); color: #fff; font-weight: 700; font-size: 14px; padding: 8px 18px; border-radius: 14px; cursor: pointer; box-shadow: 0 4px 12px rgba(41,182,246,0.35); }
 .pg-btn:disabled { background: #CFD8DC; box-shadow: none; cursor: not-allowed; }
 .pg-btn:active:not(:disabled) { transform: scale(0.97); }
+
+/* ---------- Mobile Header Fix ---------- */
+@media (max-width: 640px) {
+  .app-header { padding: 10px 12px 12px; }
+  .app-header .top { flex-wrap: wrap; gap: 6px; }
+  .app-header .brand { font-size: 15px; gap: 6px; min-width: 0; flex: 1; }
+  .app-header .brand .brand-text { display: none; }
+  .app-header .tenant-name { font-size: 11px; margin-left: 0; }
+  .app-header .user-area { font-size: 12px; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+  .app-header .tenant-select { padding: 3px 6px; font-size: 12px; max-width: 110px; }
+  .app-header .balance-pill { font-size: 11px; padding: 3px 8px !important; }
+  .app-header .badge-role { font-size: 10px; padding: 1px 6px; }
+  .app-header a.logout { font-size: 12px; }
+  .app-header a.admin-link { font-size: 12px; }
+}
