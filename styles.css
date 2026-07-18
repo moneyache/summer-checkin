@@ -258,5 +258,4 @@ table.tbl th { color: var(--muted); font-weight: 700; font-size: 12px; }
   .app-header .balance-pill { font-size: 11px; padding: 3px 8px !important; }
   .app-header .badge-role { font-size: 10px; padding: 1px 6px; }
   .app-header a.logout { font-size: 12px; }
-  .app-header a.admin-link { font-size: 12px; }
 }
