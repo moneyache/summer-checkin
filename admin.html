@@ -2,128 +2,132 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>超管后台 · 暑假打卡小能手</title>
 <style>
   :root {
     --bg: #F5F5F5; --card: #FFFFFF; --text: #333; --muted: #999;
     --primary: #4F46E5; --danger: #DC2626; --success: #16A34A; --warn: #F59E0B;
-    --radius: 10px; --shadow: 0 1px 4px rgba(0,0,0,0.06);
+    --radius: 12px;
   }
   * { margin:0; padding:0; box-sizing:border-box; }
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background:var(--bg); color:var(--text); }
-  .layout { display:flex; min-height:100vh; }
-  
-  /* Sidebar */
-  .sidebar { width:260px; background:var(--card); border-right:1px solid #E5E7EB; padding:20px 0; display:flex; flex-direction:column; }
-  .sidebar h2 { font-size:18px; padding:0 20px 16px; border-bottom:1px solid #E5E7EB; margin-bottom:12px; }
-  .sidebar h2 a { color:inherit; text-decoration:none; }
-  .space-list { flex:1; overflow-y:auto; padding:0 12px; }
-  .space-item { padding:10px 12px; border-radius:8px; cursor:pointer; margin-bottom:4px; font-size:14px; display:flex; justify-content:space-between; align-items:center; transition:background .15s; }
-  .space-item:hover { background:#F3F4F6; }
-  .space-item.active { background:#EEF2FF; color:var(--primary); font-weight:600; }
-  .space-item .count { font-size:12px; color:var(--muted); background:#F3F4F6; padding:2px 8px; border-radius:10px; }
-  .space-item .danger { color:var(--danger); cursor:pointer; font-size:18px; line-height:1; margin-left:6px; opacity:0; transition:opacity .15s; }
-  .space-item:hover .danger { opacity:1; }
-  .sidebar-footer { padding:12px 20px; border-top:1px solid #E5E7EB; }
-  .btn { padding:8px 16px; border:none; border-radius:8px; font-size:14px; font-weight:600; cursor:pointer; }
-  .btn-primary { background:var(--primary); color:#fff; width:100%; }
-  .btn-sm { padding:4px 10px; font-size:12px; border-radius:6px; }
-  .btn-danger { background:var(--danger); color:#fff; }
-  .btn-success { background:var(--success); color:#fff; }
-  .btn-warn { background:var(--warn); color:#fff; }
-  .btn-ghost { background:none; border:1px solid #D1D5DB; color:var(--text); }
-  
-  /* Main */
-  .main { flex:1; padding:20px 28px; overflow-y:auto; }
-  .main h2 { font-size:20px; margin-bottom:16px; }
-  .card { background:var(--card); border-radius:var(--radius); padding:20px; box-shadow:var(--shadow); margin-bottom:16px; }
-  .table-wrap { overflow-x:auto; }
-  table { width:100%; border-collapse:collapse; font-size:13px; }
-  th { text-align:left; padding:10px 12px; border-bottom:2px solid #E5E7EB; font-weight:600; color:var(--muted); font-size:12px; text-transform:uppercase; }
-  td { padding:10px 12px; border-bottom:1px solid #F3F4F6; }
-  tr:hover td { background:#FAFAFA; }
-  
-  .badge { display:inline-block; padding:2px 8px; border-radius:10px; font-size:11px; font-weight:600; }
-  .badge-super { background:#EEF2FF; color:var(--primary); }
-  .badge-admin { background:#FEF3C7; color:#92400E; }
-  .badge-member { background:#F3F4F6; color:#6B7280; }
-  .badge-pending { background:#FEE2E2; color:#991B1B; }
-  .badge-none { background:#F9FAFB; color:#9CA3AF; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background:var(--bg); color:var(--text); -webkit-tap-highlight-color:transparent; }
+
+  /* Top bar */
+  .topbar {
+    background: var(--primary); color: #fff; padding: 14px 16px;
+    display: flex; align-items: center; gap: 12px; position: sticky; top: 0; z-index: 50;
+    box-shadow: 0 1px 8px rgba(79,70,229,0.2);
+  }
+  .topbar h1 { font-size: 18px; font-weight: 700; white-space: nowrap; }
+  .topbar .spacer { flex:1; }
+  .topbar a { color: rgba(255,255,255,0.85); text-decoration: none; font-size: 13px; white-space: nowrap; }
+
+  /* Toolbar */
+  .toolbar {
+    display: flex; gap: 8px; padding: 12px 16px; align-items: center;
+    background: var(--card); border-bottom: 1px solid #E5E7EB;
+  }
+  .toolbar select { flex:1; padding: 10px 12px; border: 1.5px solid #E5E7EB; border-radius: 10px;
+    font-size: 15px; background: var(--card); color: var(--text); appearance:auto; -webkit-appearance:auto; }
+  .btn { padding: 10px 16px; border: none; border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer; white-space: nowrap; -webkit-tap-highlight-color:transparent; }
+  .btn:active { opacity: 0.8; }
+  .btn-primary { background: var(--primary); color: #fff; }
+  .btn-sm { padding: 6px 12px; font-size: 13px; border-radius: 8px; }
+  .btn-danger { background: var(--danger); color: #fff; }
+  .btn-warn { background: var(--warn); color: #fff; }
+  .btn-ghost { background: none; border: 1.5px solid #D1D5DB; color: var(--text); }
+
+  /* Members area */
+  .content { padding: 12px 16px; max-width: 640px; margin: 0 auto; }
+  .section-title { font-size: 15px; font-weight: 700; color: var(--muted); margin: 8px 0 12px; display:flex; align-items:center; gap:6px; }
+  .section-title .count { font-weight: 400; font-size: 13px; }
+
+  /* Member card */
+  .member-card {
+    background: var(--card); border-radius: var(--radius); padding: 14px 16px;
+    margin-bottom: 10px; display: flex; align-items: center; gap: 12px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04); transition: box-shadow .15s;
+  }
+  .member-card:active { box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+  .member-card .avatar {
+    width: 40px; height: 40px; border-radius: 50%; background: #EEF2FF; color: var(--primary);
+    display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 700; flex-shrink: 0;
+  }
+  .member-card .info { flex:1; min-width:0; }
+  .member-card .name { font-size: 16px; font-weight: 600; }
+  .member-card .meta { font-size: 12px; color: var(--muted); margin-top: 2px; display: flex; gap: 8px; flex-wrap: wrap; }
+  .member-card .actions { display: flex; gap: 6px; flex-shrink: 0; }
+
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+  .badge-super { background: #EEF2FF; color: var(--primary); }
+  .badge-admin { background: #FEF3C7; color: #92400E; }
+  .badge-member { background: #F3F4F6; color: #6B7280; }
+  .badge-pending { background: #FEE2E2; color: #991B1B; }
+  .badge-none { background: #F9FAFB; color: #9CA3AF; }
+
+  .empty { color: var(--muted); text-align: center; padding: 60px 20px; font-size: 15px; }
+
+  /* Danger zone */
+  .danger-zone { margin-top: 20px; padding: 14px 16px; background: #FEF2F2; border-radius: var(--radius); }
+  .danger-zone p { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
 
   /* Modal */
-  .modal-mask { position:fixed; inset:0; background:rgba(0,0,0,0.3); display:flex; align-items:center; justify-content:center; z-index:100; }
-  .modal { background:var(--card); border-radius:14px; padding:28px; width:100%; max-width:400px; box-shadow:0 8px 40px rgba(0,0,0,0.15); }
-  .modal h3 { margin-bottom:16px; }
-  .field { margin-bottom:12px; }
-  .field label { display:block; font-size:13px; color:var(--muted); margin-bottom:4px; font-weight:600; }
-  .field input { width:100%; padding:10px 12px; border:1.5px solid #E5E7EB; border-radius:8px; font-size:14px; }
-  .modal-actions { display:flex; gap:8px; margin-top:16px; justify-content:flex-end; }
-  
-  .section-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; }
-  .actions { display:flex; gap:6px; }
-  .empty { color:var(--muted); text-align:center; padding:40px; }
-  .toast { position:fixed; top:20px; left:50%; transform:translateX(-50%); background:#333; color:#fff; padding:10px 24px; border-radius:8px; font-size:14px; z-index:200; opacity:0; pointer-events:none; transition:opacity .3s; }
-  .toast.show { opacity:1; }
-  .toast.error { background:var(--danger); }
-  .toast.success { background:var(--success); }
+  .modal-mask { position: fixed; inset: 0; background: rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; z-index: 100; padding: 16px; }
+  .modal { background: var(--card); border-radius: 16px; padding: 24px; width: 100%; max-width: 360px; box-shadow: 0 8px 40px rgba(0,0,0,0.15); }
+  .modal h3 { margin-bottom: 16px; font-size: 18px; }
+  .field { margin-bottom: 14px; }
+  .field label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 4px; font-weight: 600; }
+  .field input, .field select { width: 100%; padding: 11px 12px; border: 1.5px solid #E5E7EB; border-radius: 10px; font-size: 15px; background: var(--card); }
+  .modal-actions { display: flex; gap: 8px; margin-top: 18px; justify-content: flex-end; }
 
-  /* Mobile responsive */
-  @media (max-width: 768px) {
-    .layout { flex-direction: column; }
-    .sidebar { width: 100%; border-right: none; border-bottom: 1px solid #E5E7EB; padding: 12px 0; }
-    .sidebar h2 { font-size: 16px; padding: 0 16px 12px; margin-bottom: 8px; }
-    .space-list { display: flex; flex-direction: row; overflow-x: auto; padding: 0 16px 8px; gap: 8px; -webkit-overflow-scrolling: touch; }
-    .space-list .space-item { white-space: nowrap; margin-bottom: 0; flex-shrink: 0; }
-    .space-list .space-item .danger { display: none; }
-    .sidebar-footer { display: flex; align-items: center; gap: 10px; padding: 8px 16px; border-top: none; }
-    .sidebar-footer .btn { flex: 1; }
-    .main { padding: 12px 14px; }
-    .main h2 { font-size: 16px; }
-    .card { padding: 12px; }
-    /* 表格转卡片 */
-    .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-    table { min-width: 600px; font-size: 12px; }
-    th, td { padding: 8px 10px; }
-    .btn-sm { padding: 4px 8px; font-size: 11px; }
-    .modal { max-width: 92vw; padding: 18px; }
-    .modal h3 { font-size: 16px; }
+  .toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: #333; color: #fff; padding: 10px 24px; border-radius: 8px; font-size: 14px; z-index: 200; opacity: 0; pointer-events: none; transition: opacity .3s; }
+  .toast.show { opacity: 1; }
+  .toast.error { background: var(--danger); }
+  .toast.success { background: var(--success); }
+
+  /* PC: wider content, cards inline */
+  @media (min-width: 640px) {
+    .content { max-width: 720px; padding: 16px 24px; }
+    .member-card { padding: 16px 20px; }
+    .btn { font-size: 14px; }
+    .toolbar { padding: 14px 24px; }
   }
 </style>
 </head>
 <body>
-<div class="layout">
-  <div class="sidebar">
-    <h2><a href="index.html">🏖️ 超管后台</a></h2>
-    <div class="space-list" id="spaceList"></div>
-    <div class="sidebar-footer">
-      <button class="btn btn-primary" onclick="openCreateSpace()">➕ 创建空间</button>
-      <div style="margin-top:8px;font-size:12px;color:var(--muted)">
-        <span id="loginUser">...</span>
-        <a href="index.html" style="float:right;color:var(--primary)">返回打卡</a>
-      </div>
-    </div>
-  </div>
-  <div class="main" id="main"></div>
+
+<div class="topbar">
+  <h1>🏖️ 超管后台</h1>
+  <span class="spacer"></span>
+  <span style="font-size:12px;opacity:0.7" id="loginUser">...</span>
+  <a href="index.html">返回打卡 →</a>
 </div>
+
+<div class="toolbar">
+  <select id="spaceSelect" onchange="onSelectSpace(this.value)">
+    <option value="">📊 所有账号概览</option>
+  </select>
+  <button class="btn btn-primary" onclick="openCreateSpace()">➕ 创建</button>
+  <button class="btn btn-sm btn-danger" id="btnDelSpace" onclick="delCurrentSpace()" style="display:none">删除空间</button>
+</div>
+
+<div class="content" id="content"></div>
+
 <div class="toast" id="toast"></div>
 
 <script src="vendor/supabase.js"></script>
 <script src="vendor/crypto-js.js"></script>
 <script src="auth.js"></script>
 <script>
-let _tenants = [];
-let _users = [];
-let _selectedTenant = null;
-let _currentUser = null;
+let _tenants = [], _users = [], _selectedTenant = null, _currentUser = null;
 
-// 初始化
 (async function init() {
   const st = await checkLoginStatus();
   if (!st.loggedIn) { location.href = 'login.html'; return; }
   _currentUser = st.username;
   const isSuper = await isSuperAdmin(st.username);
-  if (!isSuper) { document.body.innerHTML = '<div style="padding:40px;text-align:center"><h2>无权限</h2><p>仅超级管理员可访问</p><a href="index.html">返回打卡</a></div>'; return; }
+  if (!isSuper) { document.body.innerHTML = '<div style="padding:60px 20px;text-align:center"><h2>无权限</h2><p style="color:#999;margin:8px 0">仅超级管理员可访问</p><a href="index.html" style="color:var(--primary)">返回打卡</a></div>'; return; }
   document.getElementById('loginUser').textContent = st.username;
   await refresh();
 })();
@@ -131,109 +135,103 @@ let _currentUser = null;
 async function refresh() {
   await loadTenants();
   await loadUsers();
-  renderSidebar();
-  renderMain();
+  renderSpaceSelect();
+  renderContent();
 }
 
-async function loadTenants() {
-  _tenants = await listTenants();
-}
+async function loadTenants() { _tenants = await listTenants(); }
 async function loadUsers() {
-  try {
-    const { data } = await getSupabase().rpc('sc_admin_all_users', { p_username: _currentUser });
-    _users = data || [];
-  } catch(e) { _users = []; }
+  try { const { data } = await getSupabase().rpc('sc_admin_all_users', { p_username: _currentUser }); _users = data || []; }
+  catch(e) { _users = []; }
 }
 
-// ---- Sidebar ----
-function renderSidebar() {
-  const el = document.getElementById('spaceList');
-  el.innerHTML = _tenants.map(t =>
-    '<div class="space-item' + (_selectedTenant === t.id ? ' active' : '') + '" onclick="selectTenant(\'' + t.id + '\')">' +
-      '<span>' + escHtml(t.name) + '</span>' +
-      '<span style="display:flex;align-items:center">' +
-        '<span class="count">' + t.member_count + '人</span>' +
-        '<span class="danger" onclick="event.stopPropagation();deleteTenant(\'' + t.id + '\',\'' + escHtml(t.name) + '\')" title="删除">×</span>' +
-      '</span>' +
-    '</div>'
-  ).join('');
+/* ---- Dropdown ---- */
+function renderSpaceSelect() {
+  const sel = document.getElementById('spaceSelect');
+  sel.innerHTML = '<option value="">📊 所有账号（' + _users.length + '人）</option>' +
+    _tenants.map(t => '<option value="' + t.id + '"' + (_selectedTenant === t.id ? ' selected' : '') + '>📁 ' + escHtml(t.name) + '（' + t.member_count + '人）</option>').join('');
+  sel.value = _selectedTenant || '';
 }
 
-function selectTenant(id) {
-  _selectedTenant = id;
-  renderSidebar();
-  renderMain();
+function onSelectSpace(v) {
+  _selectedTenant = v || null;
+  document.getElementById('btnDelSpace').style.display = _selectedTenant ? '' : 'none';
+  renderContent();
 }
 
-// ---- Main ----
-function renderMain() {
-  const el = document.getElementById('main');
-  const selTenant = _tenants.find(t => t.id === _selectedTenant);
+async function delCurrentSpace() {
+  const sel = _tenants.find(t => t.id === _selectedTenant);
+  if (!sel) return;
+  if (!confirm('⚠️ 确定删除空间「' + sel.name + '」？所有成员、打卡记录、积分将被永久删除！')) return;
+  const { data } = await getSupabase().rpc('sc_admin_delete_tenant', { p_username: _currentUser, p_tenant_id: _selectedTenant });
+  if (data && data.ok) { showToast('已删除「' + data.deleted + '」', 'success'); _selectedTenant = null; await refresh(); }
+  else { showToast(data ? data.error : '删除失败', 'error'); }
+}
 
-  let html = '<h2>' + (selTenant ? escHtml(selTenant.name) + ' · 成员管理' : '所有账号概览') + '</h2>';
+/* ---- Content ---- */
+function renderContent() {
+  const el = document.getElementById('content');
+  const sel = _tenants.find(t => t.id === _selectedTenant);
+  let html = '';
 
-  // 空间详情卡片
-  if (selTenant) {
-    html += '<div class="card"><div class="section-header"><span>📋 ' + selTenant.member_count + ' 位成员</span>' +
-      '<button class="btn btn-sm btn-primary" onclick="openBindUser()">➕ 绑定用户</button></div>';
-    html += renderUserTable(_users.filter(u => u.tenant_id === selTenant.id || u.status === 'pending'));
+  if (sel) {
+    // 选中空间 → 显示该空间成员
+    const members = _users.filter(u => u.tenant_id === sel.id);
+    html += '<div class="section-title">👥 ' + escHtml(sel.name) +
+      '<span class="count">' + members.length + ' 位成员</span>' +
+      '<span style="flex:1"></span>' +
+      '<button class="btn btn-sm btn-primary" onclick="openBindUser()">绑定用户</button></div>';
+    html += renderMembers(members);
   } else {
-    // 全部用户概览
-    const unbound = _users.filter(u => !u.tenant_id).length;
-    html += '<div class="card"><div class="section-header"><span>👥 共 ' + _users.length + ' 个账号 · ' + unbound + ' 个未绑定</span></div>';
-    html += renderUserTable(_users.filter(u => !u.tenant_id));
-    html += '</div>';
+    // 总览
+    const unbound = _users.filter(u => !u.tenant_id);
+    html += '<div class="section-title">🔓 未绑定账号<span class="count">' + unbound.length + ' 人</span></div>';
+    html += renderMembers(unbound);
 
-    // 已绑定按空间分组
     _tenants.forEach(t => {
       const members = _users.filter(u => u.tenant_id === t.id);
       if (!members.length) return;
-      html += '<div class="card"><div class="section-header"><span style="cursor:pointer;color:var(--primary)" onclick="selectTenant(\'' + t.id + '\')">📁 ' + escHtml(t.name) + '</span>' +
-        '<span class="badge badge-member">' + members.length + '人</span></div>';
-      html += renderUserTable(members);
-      html += '</div>';
+      html += '<div class="section-title" style="cursor:pointer;color:var(--primary)" onclick="onSelectSpace(\'' + t.id + '\')">📁 ' + escHtml(t.name) +
+        '<span class="count">' + members.length + ' 人</span></div>';
+      html += renderMembers(members);
     });
   }
 
-  el.innerHTML = html;
+  el.innerHTML = html || '<div class="empty">暂无数据</div>';
 }
 
-function renderUserTable(users) {
-  if (!users.length) return '<div class="empty">暂无数据</div>';
-  return '<div class="table-wrap"><table><thead><tr><th>用户名</th><th>空间</th><th>角色</th><th>状态</th><th>注册时间</th><th>操作</th></tr></thead><tbody>' +
-    users.map(u => {
-      const roleBadge = !u.role ? '<span class="badge badge-none">未绑定</span>'
-        : u.role === 'super_admin' ? '<span class="badge badge-super">超管</span>'
-        : u.role === 'admin' ? '<span class="badge badge-admin">管理员</span>'
-        : '<span class="badge badge-member">成员</span>';
-      const statusBadge = u.status === 'pending' ? '<span class="badge badge-pending">待审批</span>'
-        : u.status === 'rejected' ? '<span class="badge badge-none">已拒绝</span>' : '';
-      const actions = buildActions(u);
-      return '<tr><td>' + escHtml(u.username) + '</td><td>' + escHtml(u.tenant_name || '-') + '</td><td>' + roleBadge + '</td><td>' + statusBadge + '</td><td>' + fmtDate(u.created_at) + '</td><td>' + actions + '</td></tr>';
-    }).join('') +
-    '</tbody></table></div>';
+function renderMembers(members) {
+  if (!members.length) return '<div class="empty">暂无成员</div>';
+  return members.map(u => {
+    const initial = (u.username || '?')[0].toUpperCase();
+    const roleBadge = !u.role ? '<span class="badge badge-none">未绑定</span>'
+      : u.role === 'super_admin' ? '<span class="badge badge-super">超管</span>'
+      : u.role === 'admin' ? '<span class="badge badge-admin">管理员</span>'
+      : '<span class="badge badge-member">成员</span>';
+    const statusInfo = u.status === 'pending' ? ' · <span class="badge badge-pending">待审批</span>' : '';
+
+    let actionsHtml = '';
+    if (!u.tenant_id) {
+      actionsHtml = '<button class="btn btn-sm btn-primary" onclick="openBindUser(\'' + escHtml(u.username) + '\')">绑定</button>';
+    } else if (u.role !== 'super_admin') {
+      actionsHtml = (u.role === 'admin'
+        ? '<button class="btn btn-sm btn-warn" onclick="setRole(\'' + u.tenant_id + '\',\'' + u.username + '\',\'member\')">降为成员</button> '
+        : '<button class="btn btn-sm btn-warn" onclick="setRole(\'' + u.tenant_id + '\',\'' + u.username + '\',\'admin\')">升为管理</button> ') +
+        '<button class="btn btn-sm btn-danger" onclick="removeMember(\'' + u.tenant_id + '\',\'' + u.username + '\')">移除</button>';
+    }
+
+    return `<div class="member-card">
+      <div class="avatar" style="background:${u.role==='super_admin'?'#EEF2FF':u.role==='admin'?'#FEF3C7':'#F3F4F6'};color:${u.role==='super_admin'?'var(--primary)':u.role==='admin'?'#92400E':'#6B7280'}">${initial}</div>
+      <div class="info">
+        <div class="name">${escHtml(u.username)} ${roleBadge}${statusInfo}</div>
+        <div class="meta">${escHtml(u.tenant_name || '未绑定')} · 注册 ${fmtDate(u.created_at)}</div>
+      </div>
+      ${actionsHtml ? '<div class="actions">' + actionsHtml + '</div>' : ''}
+    </div>`;
+  }).join('');
 }
 
-function buildActions(u) {
-  if (!u.tenant_id) {
-    // 未绑定：可强制绑定
-    return '<button class="btn btn-sm btn-primary" onclick="openBindUser(\'' + escHtml(u.username) + '\')">绑定</button>';
-  }
-  if (u.role === 'super_admin') return '-';
-  
-  let btns = '';
-  // 切换角色
-  if (u.role === 'admin') {
-    btns += '<button class="btn btn-sm btn-warn" onclick="setRole(\'' + u.tenant_id + '\',\'' + u.username + '\',\'member\')">降为成员</button> ';
-  } else {
-    btns += '<button class="btn btn-sm btn-warn" onclick="setRole(\'' + u.tenant_id + '\',\'' + u.username + '\',\'admin\')">升为管理</button> ';
-  }
-  // 移除
-  btns += '<button class="btn btn-sm btn-danger" onclick="removeMember(\'' + u.tenant_id + '\',\'' + u.username + '\')">移除</button>';
-  return btns;
-}
-
-// ---- Actions ----
+/* ---- Actions ---- */
 async function deleteTenant(id, name) {
   if (!confirm('⚠️ 确定删除空间「' + name + '」？\n所有成员、打卡记录、积分将被永久删除！')) return;
   const { data } = await getSupabase().rpc('sc_admin_delete_tenant', { p_username: _currentUser, p_tenant_id: id });
@@ -241,45 +239,28 @@ async function deleteTenant(id, name) {
     showToast('已删除「' + data.deleted + '」', 'success');
     if (_selectedTenant === id) _selectedTenant = null;
     await refresh();
-  } else {
-    showToast(data ? data.error : '删除失败', 'error');
-  }
+  } else { showToast(data ? data.error : '删除失败', 'error'); }
 }
 
 async function setRole(tenantId, username, role) {
-  const { data } = await getSupabase().rpc('sc_admin_set_role', {
-    p_username: _currentUser, p_tenant_id: tenantId, p_member_username: username, p_new_role: role
-  });
-  if (data && data.ok) {
-    showToast('角色已更新', 'success');
-    await loadUsers();
-    renderMain();
-  } else {
-    showToast(data ? data.error : '操作失败', 'error');
-  }
+  const { data } = await getSupabase().rpc('sc_admin_set_role', { p_username: _currentUser, p_tenant_id: tenantId, p_member_username: username, p_new_role: role });
+  if (data && data.ok) { showToast('角色已更新', 'success'); await refresh(); }
+  else { showToast(data ? data.error : '操作失败', 'error'); }
 }
 
 async function removeMember(tenantId, username) {
   if (!confirm('确定移除「' + username + '」？其打卡记录将被清除。')) return;
-  const { data } = await getSupabase().rpc('sc_remove_member', {
-    p_tenant_id: tenantId, p_admin_username: _currentUser, p_member_username: username
-  });
-  if (data && data.ok) {
-    showToast('已移除', 'success');
-    await loadUsers();
-    renderMain();
-  } else {
-    showToast(data ? data.error : '操作失败', 'error');
-  }
+  const { data } = await getSupabase().rpc('sc_remove_member', { p_tenant_id: tenantId, p_admin_username: _currentUser, p_member_username: username });
+  if (data && data.ok) { showToast('已移除', 'success'); await refresh(); }
+  else { showToast(data ? data.error : '操作失败', 'error'); }
 }
 
-// ---- Modals ----
+/* ---- Modals ---- */
 function openCreateSpace() {
-  const html =
+  showModal('创建新空间',
     '<div class="field"><label>空间名称</label><input id="m_name" placeholder="如：小明班级打卡"></div>' +
-    '<div class="field"><label>管理员口令</label><input id="m_pass" placeholder="至少3位，如 222222" type="text" maxlength="20"></div>' +
-    '<div class="modal-actions"><button class="btn btn-ghost" onclick="closeModal()">取消</button><button class="btn btn-primary" onclick="doCreateSpace()">创建</button></div>';
-  showModal('创建新空间', html);
+    '<div class="field"><label>管理员口令</label><input id="m_pass" placeholder="至少3位，如 222222" maxlength="20"></div>' +
+    '<div class="modal-actions"><button class="btn btn-ghost" onclick="closeModal()">取消</button><button class="btn btn-primary" onclick="doCreateSpace()">创建</button></div>');
 }
 
 async function doCreateSpace() {
@@ -289,55 +270,38 @@ async function doCreateSpace() {
   if (pass.length < 3) { showToast('口令至少3位', 'error'); return; }
   const result = await createTenant(name, pass);
   if (result && result.ok) {
-    closeModal();
-    showToast('空间「' + name + '」已创建', 'success');
-    await refresh();
-  } else {
-    showToast(result ? result.error : '创建失败', 'error');
-  }
+    closeModal(); showToast('空间「' + name + '」已创建', 'success'); await refresh();
+  } else { showToast(result ? result.error : '创建失败', 'error'); }
 }
 
 function openBindUser(presetUser) {
   const userOpts = _users
     .filter(u => !u.tenant_id || u.status === 'pending')
-    .map(u => '<option value="' + escHtml(u.username) + '"' + (u.username === presetUser ? ' selected' : '') + '>' + escHtml(u.username) + '</option>')
-    .join('');
-  const tenantOpts = _tenants
-    .map(t => '<option value="' + t.id + '"' + (t.id === _selectedTenant ? ' selected' : '') + '>' + escHtml(t.name) + '</option>')
-    .join('');
-  const roleOpts = '<option value="member">成员</option><option value="admin">管理员</option>';
-
-  let html = '<div class="field"><label>用户</label><select id="m_user">' + userOpts + '</select></div>';
-  html += '<div class="field"><label>目标空间</label><select id="m_tenant">' + tenantOpts + '</select></div>';
-  html += '<div class="field"><label>角色</label><select id="m_role">' + roleOpts + '</select></div>';
-  html += '<div class="modal-actions"><button class="btn btn-ghost" onclick="closeModal()">取消</button><button class="btn btn-primary" onclick="doBindUser()">绑定</button></div>';
-  showModal('绑定用户到空间', html);
+    .map(u => '<option value="' + escHtml(u.username) + '"' + (u.username === presetUser ? ' selected' : '') + '>' + escHtml(u.username) + '</option>').join('');
+  const tenantOpts = _tenants.map(t => '<option value="' + t.id + '"' + (t.id === _selectedTenant ? ' selected' : '') + '>' + escHtml(t.name) + '</option>').join('');
+  showModal('绑定用户到空间',
+    '<div class="field"><label>用户</label><select id="m_user">' + userOpts + '</select></div>' +
+    '<div class="field"><label>目标空间</label><select id="m_tenant">' + tenantOpts + '</select></div>' +
+    '<div class="field"><label>角色</label><select id="m_role"><option value="member">成员</option><option value="admin">管理员</option></select></div>' +
+    '<div class="modal-actions"><button class="btn btn-ghost" onclick="closeModal()">取消</button><button class="btn btn-primary" onclick="doBindUser()">绑定</button></div>');
 }
 
 async function doBindUser() {
   const username = document.getElementById('m_user').value;
   const tenantId = document.getElementById('m_tenant').value;
   const role = document.getElementById('m_role').value;
-  const { data } = await getSupabase().rpc('sc_admin_bind_user', {
-    p_username: _currentUser, p_tenant_id: tenantId, p_member_username: username, p_role: role
-  });
-  if (data && data.ok) {
-    closeModal();
-    showToast('已绑定', 'success');
-    await loadUsers();
-    renderMain();
-  } else {
-    showToast(data ? data.error : '绑定失败', 'error');
-  }
+  const { data } = await getSupabase().rpc('sc_admin_bind_user', { p_username: _currentUser, p_tenant_id: tenantId, p_member_username: username, p_role: role });
+  if (data && data.ok) { closeModal(); showToast('已绑定', 'success'); await refresh(); }
+  else { showToast(data ? data.error : '绑定失败', 'error'); }
 }
 
-// ---- Utilities ----
+/* ---- Utilities ---- */
 function showModal(title, body) {
   closeModal();
   const mask = document.createElement('div'); mask.className = 'modal-mask';
   mask.innerHTML = '<div class="modal"><h3>' + title + '</h3>' + body + '</div>';
-  document.body.appendChild(mask);
   mask.addEventListener('click', e => { if (e.target === mask) closeModal(); });
+  document.body.appendChild(mask);
 }
 function closeModal() { const m = document.querySelector('.modal-mask'); if (m) m.remove(); }
 function escHtml(s) { return String(s||'').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
