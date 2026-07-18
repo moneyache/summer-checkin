@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>超管后台 · 暑假打卡小能手</title>
+<style>
+  :root {
+    --bg: #F5F5F5; --card: #FFFFFF; --text: #333; --muted: #999;
+    --primary: #4F46E5; --danger: #DC2626; --success: #16A34A; --warn: #F59E0B;
+    --radius: 10px; --shadow: 0 1px 4px rgba(0,0,0,0.06);
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background:var(--bg); color:var(--text); }
+  .layout { display:flex; min-height:100vh; }
+  
+  /* Sidebar */
+  .sidebar { width:260px; background:var(--card); border-right:1px solid #E5E7EB; padding:20px 0; display:flex; flex-direction:column; }
+  .sidebar h2 { font-size:18px; padding:0 20px 16px; border-bottom:1px solid #E5E7EB; margin-bottom:12px; }
+  .sidebar h2 a { color:inherit; text-decoration:none; }
+  .space-list { flex:1; overflow-y:auto; padding:0 12px; }
+  .space-item { padding:10px 12px; border-radius:8px; cursor:pointer; margin-bottom:4px; font-size:14px; display:flex; justify-content:space-between; align-items:center; transition:background .15s; }
+  .space-item:hover { background:#F3F4F6; }
+  .space-item.active { background:#EEF2FF; color:var(--primary); font-weight:600; }
+  .space-item .count { font-size:12px; color:var(--muted); background:#F3F4F6; padding:2px 8px; border-radius:10px; }
+  .space-item .danger { color:var(--danger); cursor:pointer; font-size:18px; line-height:1; margin-left:6px; opacity:0; transition:opacity .15s; }
+  .space-item:hover .danger { opacity:1; }
+  .sidebar-footer { padding:12px 20px; border-top:1px solid #E5E7EB; }
+  .btn { padding:8px 16px; border:none; border-radius:8px; font-size:14px; font-weight:600; cursor:pointer; }
+  .btn-primary { background:var(--primary); color:#fff; width:100%; }
+  .btn-sm { padding:4px 10px; font-size:12px; border-radius:6px; }
+  .btn-danger { background:var(--danger); color:#fff; }
+  .btn-success { background:var(--success); color:#fff; }
+  .btn-warn { background:var(--warn); color:#fff; }
+  .btn-ghost { background:none; border:1px solid #D1D5DB; color:var(--text); }
+  
+  /* Main */
+  .main { flex:1; padding:20px 28px; overflow-y:auto; }
+  .main h2 { font-size:20px; margin-bottom:16px; }
+  .card { background:var(--card); border-radius:var(--radius); padding:20px; box-shadow:var(--shadow); margin-bottom:16px; }
+  .table-wrap { overflow-x:auto; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th { text-align:left; padding:10px 12px; border-bottom:2px solid #E5E7EB; font-weight:600; color:var(--muted); font-size:12px; text-transform:uppercase; }
+  td { padding:10px 12px; border-bottom:1px solid #F3F4F6; }
+  tr:hover td { background:#FAFAFA; }
+  
+  .badge { display:inline-block; padding:2px 8px; border-radius:10px; font-size:11px; font-weight:600; }
+  .badge-super { background:#EEF2FF; color:var(--primary); }
+  .badge-admin { background:#FEF3C7; color:#92400E; }
+  .badge-member { background:#F3F4F6; color:#6B7280; }
+  .badge-pending { background:#FEE2E2; color:#991B1B; }
+  .badge-none { background:#F9FAFB; color:#9CA3AF; }
+
+  /* Modal */
+  .modal-mask { position:fixed; inset:0; background:rgba(0,0,0,0.3); display:flex; align-items:center; justify-content:center; z-index:100; }
+  .modal { background:var(--card); border-radius:14px; padding:28px; width:100%; max-width:400px; box-shadow:0 8px 40px rgba(0,0,0,0.15); }
+  .modal h3 { margin-bottom:16px; }
+  .field { margin-bottom:12px; }
+  .field label { display:block; font-size:13px; color:var(--muted); margin-bottom:4px; font-weight:600; }
+  .field input { width:100%; padding:10px 12px; border:1.5px solid #E5E7EB; border-radius:8px; font-size:14px; }
+  .modal-actions { display:flex; gap:8px; margin-top:16px; justify-content:flex-end; }
+  
+  .section-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; }
+  .actions { display:flex; gap:6px; }
+  .empty { color:var(--muted); text-align:center; padding:40px; }
+  .toast { position:fixed; top:20px; left:50%; transform:translateX(-50%); background:#333; color:#fff; padding:10px 24px; border-radius:8px; font-size:14px; z-index:200; opacity:0; pointer-events:none; transition:opacity .3s; }
+  .toast.show { opacity:1; }
+  .toast.error { background:var(--danger); }
+  .toast.success { background:var(--success); }
+</style>
+</head>
+<body>
+<div class="layout">
+  <div class="sidebar">
+    <h2><a href="index.html">🏖️ 超管后台</a></h2>
+    <div class="space-list" id="spaceList"></div>
+    <div class="sidebar-footer">
+      <button class="btn btn-primary" onclick="openCreateSpace()">➕ 创建空间</button>
+      <div style="margin-top:8px;font-size:12px;color:var(--muted)">
+        <span id="loginUser">...</span>
+        <a href="index.html" style="float:right;color:var(--primary)">返回打卡</a>
+      </div>
+    </div>
+  </div>
+  <div class="main" id="main"></div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script src="vendor/supabase.js"></script>
+<script src="vendor/crypto-js.js"></script>
+<script src="auth.js"></script>
+<script>
+let _tenants = [];
+let _users = [];
+let _selectedTenant = null;
+let _currentUser = null;
+
+// 初始化
+(async function init() {
+  const st = await checkLoginStatus();
+  if (!st.loggedIn) { location.href = 'login.html'; return; }
+  _currentUser = st.username;
+  const isSuper = await isSuperAdmin(st.username);
+  if (!isSuper) { document.body.innerHTML = '<div style="padding:40px;text-align:center"><h2>无权限</h2><p>仅超级管理员可访问</p><a href="index.html">返回打卡</a></div>'; return; }
+  document.getElementById('loginUser').textContent = st.username;
+  await refresh();
+})();
+
+async function refresh() {
+  await loadTenants();
+  await loadUsers();
+  renderSidebar();
+  renderMain();
+}
+
+async function loadTenants() {
+  _tenants = await listTenants();
+}
+async function loadUsers() {
+  try {
+    const { data } = await getSupabase().rpc('sc_admin_all_users', { p_username: _currentUser });
+    _users = data || [];
+  } catch(e) { _users = []; }
+}
+
+// ---- Sidebar ----
+function renderSidebar() {
+  const el = document.getElementById('spaceList');
+  el.innerHTML = _tenants.map(t =>
+    '<div class="space-item' + (_selectedTenant === t.id ? ' active' : '') + '" onclick="selectTenant(\'' + t.id + '\')">' +
+      '<span>' + escHtml(t.name) + '</span>' +
+      '<span style="display:flex;align-items:center">' +
+        '<span class="count">' + t.member_count + '人</span>' +
+        '<span class="danger" onclick="event.stopPropagation();deleteTenant(\'' + t.id + '\',\'' + escHtml(t.name) + '\')" title="删除">×</span>' +
+      '</span>' +
+    '</div>'
+  ).join('');
+}
+
+function selectTenant(id) {
+  _selectedTenant = id;
+  renderSidebar();
+  renderMain();
+}
+
+// ---- Main ----
+function renderMain() {
+  const el = document.getElementById('main');
+  const selTenant = _tenants.find(t => t.id === _selectedTenant);
+
+  let html = '<h2>' + (selTenant ? escHtml(selTenant.name) + ' · 成员管理' : '所有账号概览') + '</h2>';
+
+  // 空间详情卡片
+  if (selTenant) {
+    html += '<div class="card"><div class="section-header"><span>📋 ' + selTenant.member_count + ' 位成员</span>' +
+      '<button class="btn btn-sm btn-primary" onclick="openBindUser()">➕ 绑定用户</button></div>';
+    html += renderUserTable(_users.filter(u => u.tenant_id === selTenant.id || u.status === 'pending'));
+  } else {
+    // 全部用户概览
+    const unbound = _users.filter(u => !u.tenant_id).length;
+    html += '<div class="card"><div class="section-header"><span>👥 共 ' + _users.length + ' 个账号 · ' + unbound + ' 个未绑定</span></div>';
+    html += renderUserTable(_users.filter(u => !u.tenant_id));
+    html += '</div>';
+
+    // 已绑定按空间分组
+    _tenants.forEach(t => {
+      const members = _users.filter(u => u.tenant_id === t.id);
+      if (!members.length) return;
+      html += '<div class="card"><div class="section-header"><span style="cursor:pointer;color:var(--primary)" onclick="selectTenant(\'' + t.id + '\')">📁 ' + escHtml(t.name) + '</span>' +
+        '<span class="badge badge-member">' + members.length + '人</span></div>';
+      html += renderUserTable(members);
+      html += '</div>';
+    });
+  }
+
+  el.innerHTML = html;
+}
+
+function renderUserTable(users) {
+  if (!users.length) return '<div class="empty">暂无数据</div>';
+  return '<div class="table-wrap"><table><thead><tr><th>用户名</th><th>空间</th><th>角色</th><th>状态</th><th>注册时间</th><th>操作</th></tr></thead><tbody>' +
+    users.map(u => {
+      const roleBadge = !u.role ? '<span class="badge badge-none">未绑定</span>'
+        : u.role === 'super_admin' ? '<span class="badge badge-super">超管</span>'
+        : u.role === 'admin' ? '<span class="badge badge-admin">管理员</span>'
+        : '<span class="badge badge-member">成员</span>';
+      const statusBadge = u.status === 'pending' ? '<span class="badge badge-pending">待审批</span>'
+        : u.status === 'rejected' ? '<span class="badge badge-none">已拒绝</span>' : '';
+      const actions = buildActions(u);
+      return '<tr><td>' + escHtml(u.username) + '</td><td>' + escHtml(u.tenant_name || '-') + '</td><td>' + roleBadge + '</td><td>' + statusBadge + '</td><td>' + fmtDate(u.created_at) + '</td><td>' + actions + '</td></tr>';
+    }).join('') +
+    '</tbody></table></div>';
+}
+
+function buildActions(u) {
+  if (!u.tenant_id) {
+    // 未绑定：可强制绑定
+    return '<button class="btn btn-sm btn-primary" onclick="openBindUser(\'' + escHtml(u.username) + '\')">绑定</button>';
+  }
+  if (u.role === 'super_admin') return '-';
+  
+  let btns = '';
+  // 切换角色
+  if (u.role === 'admin') {
+    btns += '<button class="btn btn-sm btn-warn" onclick="setRole(\'' + u.tenant_id + '\',\'' + u.username + '\',\'member\')">降为成员</button> ';
+  } else {
+    btns += '<button class="btn btn-sm btn-warn" onclick="setRole(\'' + u.tenant_id + '\',\'' + u.username + '\',\'admin\')">升为管理</button> ';
+  }
+  // 移除
+  btns += '<button class="btn btn-sm btn-danger" onclick="removeMember(\'' + u.tenant_id + '\',\'' + u.username + '\')">移除</button>';
+  return btns;
+}
+
+// ---- Actions ----
+async function deleteTenant(id, name) {
+  if (!confirm('⚠️ 确定删除空间「' + name + '」？\n所有成员、打卡记录、积分将被永久删除！')) return;
+  const { data } = await getSupabase().rpc('sc_admin_delete_tenant', { p_username: _currentUser, p_tenant_id: id });
+  if (data && data.ok) {
+    showToast('已删除「' + data.deleted + '」', 'success');
+    if (_selectedTenant === id) _selectedTenant = null;
+    await refresh();
+  } else {
+    showToast(data ? data.error : '删除失败', 'error');
+  }
+}
+
+async function setRole(tenantId, username, role) {
+  const { data } = await getSupabase().rpc('sc_admin_set_role', {
+    p_username: _currentUser, p_tenant_id: tenantId, p_member_username: username, p_new_role: role
+  });
+  if (data && data.ok) {
+    showToast('角色已更新', 'success');
+    await loadUsers();
+    renderMain();
+  } else {
+    showToast(data ? data.error : '操作失败', 'error');
+  }
+}
+
+async function removeMember(tenantId, username) {
+  if (!confirm('确定移除「' + username + '」？其打卡记录将被清除。')) return;
+  const { data } = await getSupabase().rpc('sc_remove_member', {
+    p_tenant_id: tenantId, p_admin_username: _currentUser, p_member_username: username
+  });
+  if (data && data.ok) {
+    showToast('已移除', 'success');
+    await loadUsers();
+    renderMain();
+  } else {
+    showToast(data ? data.error : '操作失败', 'error');
+  }
+}
+
+// ---- Modals ----
+function openCreateSpace() {
+  const html =
+    '<div class="field"><label>空间名称</label><input id="m_name" placeholder="如：小明班级打卡"></div>' +
+    '<div class="field"><label>管理员口令</label><input id="m_pass" placeholder="至少3位，如 222222" type="text" maxlength="20"></div>' +
+    '<div class="modal-actions"><button class="btn btn-ghost" onclick="closeModal()">取消</button><button class="btn btn-primary" onclick="doCreateSpace()">创建</button></div>';
+  showModal('创建新空间', html);
+}
+
+async function doCreateSpace() {
+  const name = document.getElementById('m_name').value.trim();
+  const pass = document.getElementById('m_pass').value.trim();
+  if (!name) { showToast('请输入空间名称', 'error'); return; }
+  if (pass.length < 3) { showToast('口令至少3位', 'error'); return; }
+  const result = await createTenant(name, pass);
+  if (result && result.ok) {
+    closeModal();
+    showToast('空间「' + name + '」已创建', 'success');
+    await refresh();
+  } else {
+    showToast(result ? result.error : '创建失败', 'error');
+  }
+}
+
+function openBindUser(presetUser) {
+  const userOpts = _users
+    .filter(u => !u.tenant_id || u.status === 'pending')
+    .map(u => '<option value="' + escHtml(u.username) + '"' + (u.username === presetUser ? ' selected' : '') + '>' + escHtml(u.username) + '</option>')
+    .join('');
+  const tenantOpts = _tenants
+    .map(t => '<option value="' + t.id + '"' + (t.id === _selectedTenant ? ' selected' : '') + '>' + escHtml(t.name) + '</option>')
+    .join('');
+  const roleOpts = '<option value="member">成员</option><option value="admin">管理员</option>';
+
+  let html = '<div class="field"><label>用户</label><select id="m_user">' + userOpts + '</select></div>';
+  html += '<div class="field"><label>目标空间</label><select id="m_tenant">' + tenantOpts + '</select></div>';
+  html += '<div class="field"><label>角色</label><select id="m_role">' + roleOpts + '</select></div>';
+  html += '<div class="modal-actions"><button class="btn btn-ghost" onclick="closeModal()">取消</button><button class="btn btn-primary" onclick="doBindUser()">绑定</button></div>';
+  showModal('绑定用户到空间', html);
+}
+
+async function doBindUser() {
+  const username = document.getElementById('m_user').value;
+  const tenantId = document.getElementById('m_tenant').value;
+  const role = document.getElementById('m_role').value;
+  const { data } = await getSupabase().rpc('sc_admin_bind_user', {
+    p_username: _currentUser, p_tenant_id: tenantId, p_member_username: username, p_role: role
+  });
+  if (data && data.ok) {
+    closeModal();
+    showToast('已绑定', 'success');
+    await loadUsers();
+    renderMain();
+  } else {
+    showToast(data ? data.error : '绑定失败', 'error');
+  }
+}
+
+// ---- Utilities ----
+function showModal(title, body) {
+  closeModal();
+  const mask = document.createElement('div'); mask.className = 'modal-mask';
+  mask.innerHTML = '<div class="modal"><h3>' + title + '</h3>' + body + '</div>';
+  document.body.appendChild(mask);
+  mask.addEventListener('click', e => { if (e.target === mask) closeModal(); });
+}
+function closeModal() { const m = document.querySelector('.modal-mask'); if (m) m.remove(); }
+function escHtml(s) { return String(s||'').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+function fmtDate(s) { return s ? s.substring(0,10) : '-'; }
+
+let _t = null;
+function showToast(msg, type) {
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.className = 'toast show'; if (type) el.classList.add(type);
+  clearTimeout(_t); _t = setTimeout(() => el.classList.remove('show'), 2500);
+}
+</script>
+</body>
+</html>
