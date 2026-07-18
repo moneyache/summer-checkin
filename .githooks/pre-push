@@ -1,15 +1,16 @@
 #!/bin/bash
-# pre-push hook: 防止功能/代码改动漏记 CHANGELOG
+# pre-push hook: CHANGELOG + SW 缓存版本 双重防漏
 # 启用：git config core.hooksPath .githooks （本仓库已配置）
 #
 # 行为：
-#   1. 仅对推送到 main 的改动做检查
-#   2. commit message 含 [skip-changelog] → 跳过检查
-#   3. 本轮改动已包含 CHANGELOG.md → 放行
-#   4. 有代码/功能改动但没动 CHANGELOG.md → 拦截 push 并提示
+#   CHANGELOG 检查（可跳过：commit message 含 [skip-changelog]）：
+#     1. 仅对推送到 main 的改动做检查
+#     2. 本轮改动已包含 CHANGELOG.md → 放行
+#     3. 有代码/功能改动但没动 CHANGELOG.md → 拦截 push 并提示
 #
-# 注：纯脚本无法生成高质量中文 changelog，故只做"防漏"，
-#     被拦截时可运行 ./scripts/changelog-draft.sh 生成草稿插入顶部。
+#   SW 缓存版本检查（可跳过：commit message 含 [skip-sw]）：
+#     1. 前端资源文件(index.html/styles.css/app.js/auth.js/spaces.html/...)有改动
+#     2. 但 sw.js 缓存版本号未更新 → 拦截（PWA 缓存旧版本会导致功能异常）
 
 zero=$(git rev-parse --show-toplevel)
 
@@ -27,39 +28,76 @@ while read local_ref local_sha remote_ref remote_sha; do
   commits=$(git rev-list "$range" 2>/dev/null)
   [ -z "$commits" ] && exit 0
 
-  # 检查是否带 [skip-changelog]
-  skip=0
+  # ── 解析本轮 commit message 中的跳过标记 ──
+  skip_cl=0; skip_sw=0
   while read c; do
     msg=$(git log -1 --format=%B "$c")
-    echo "$msg" | grep -qi "\[skip-changelog\]" && { skip=1; break; }
+    echo "$msg" | grep -qi "\[skip-changelog\]" && skip_cl=1
+    echo "$msg" | grep -qi "\[skip-sw\]" && skip_sw=1
   done <<< "$commits"
-  if [ "$skip" = "1" ]; then
-    echo "⏭️  检测到 [skip-changelog]，跳过 CHANGELOG 检查"
-    exit 0
+
+  # ═══════════════════════════════════════════════
+  # 检查 1：CHANGELOG 防漏
+  # ═══════════════════════════════════════════════
+  if [ "$skip_cl" = "1" ]; then
+    echo "⏭️  [skip-changelog] 生效，跳过 CHANGELOG 检查"
+  else
+    if git diff --name-only "$range" | grep -qx "CHANGELOG.md"; then
+      echo "✅ CHANGELOG.md 已在本轮改动中更新"
+    else
+      code_files=$(git diff --name-only "$range" | grep -vE "CHANGELOG.md|README.md|agent.md|docs/.*\.md$" || true)
+      if [ -n "$code_files" ]; then
+        echo ""
+        echo "❌ 拦截：本轮 push 含功能/代码改动，但未更新 CHANGELOG.md"
+        echo "────────────────────────────────────────────"
+        echo "待 push 的 commit："
+        git log --oneline "$range"
+        echo "────────────────────────────────────────────"
+        echo "非文档改动文件："
+        echo "$code_files"
+        echo "────────────────────────────────────────────"
+        echo "修复：."
+        echo "  1. 运行 ./scripts/changelog-draft.sh 生成草稿 → 润色 → commit"
+        echo "  2. 或 commit message 加 [skip-changelog]（仅文档/trivial 时）"
+        echo ""
+        exit 1
+      fi
+    fi
   fi
 
-  # 本轮是否已更新 CHANGELOG
-  if git diff --name-only "$range" | grep -qx "CHANGELOG.md"; then
-    echo "✅ CHANGELOG.md 已在本轮改动中更新"
-    exit 0
-  fi
+  # ═══════════════════════════════════════════════
+  # 检查 2：SW 缓存版本防漏
+  # ═══════════════════════════════════════════════
+  if [ "$skip_sw" = "1" ]; then
+    echo "⏭️  [skip-sw] 生效，跳过 SW 缓存版本检查"
+  else
+    WATCH="index.html styles.css app.js auth.js login.html register.html spaces.html admin.html manifest.json"
+    changed=""
+    for f in $WATCH; do
+      if git diff --name-only "$range" 2>/dev/null | grep -qx "$f"; then
+        changed="$changed $f"
+      fi
+    done
 
-  # 是否含代码/功能改动（非纯文档）
-  code_files=$(git diff --name-only "$range" | grep -vE "CHANGELOG.md|README.md|agent.md|docs/.*\.md$" || true)
-  if [ -n "$code_files" ]; then
-    echo ""
-    echo "❌ 拦截：本轮 push 含功能/代码改动，但未更新 CHANGELOG.md"
-    echo "────────────────────────────────────────────"
-    echo "待 push 的 commit："
-    git log --oneline "$range"
-    echo "────────────────────────────────────────────"
-    echo "非文档改动文件："
-    echo "$code_files"
-    echo "────────────────────────────────────────────"
-    echo "请先补 CHANGELOG.md（可跑 ./scripts/changelog-draft.sh 生成草稿插入顶部），"
-    echo "提交后再 push。确无需记录则在 commit message 加 [skip-changelog]。"
-    echo ""
-    exit 1
+    if [ -n "$changed" ]; then
+      if git diff --name-only "$range" 2>/dev/null | grep -qx "sw.js"; then
+        echo "✅ sw.js 已在本轮改动中更新（前端文件：$changed）"
+      else
+        echo ""
+        echo "❌ 拦截：前端资源文件有改动，但 sw.js 缓存版本未更新！"
+        echo "────────────────────────────────────────────"
+        echo "改动文件：$changed"
+        echo "────────────────────────────────────────────"
+        echo "PWA Service Worker 会继续返回缓存旧版本，导致页面功能异常。"
+        echo ""
+        echo "修复："
+        echo "  1. 运行 ./scripts/sw-version-check.sh --auto-bump 自动升版本"
+        echo "  2. 或手动改 sw.js 里的 summer-checkin-vX 版本号"
+        echo "  3. 或 commit message 加 [skip-sw]（未改动 PWA 缓存清单时）"
+        echo ""
+        exit 1
+      fi
+    fi
   fi
 done
 
